@@ -41,6 +41,7 @@ class Data
         if int >= 0x80000000 then int - 0x100000000 else int
         
     readUInt64: ->
+        # TODO: fix for files larger than 2GB
         @readUInt32() * 0x100000000 + @readUInt32()
         
     readUInt16: ->
