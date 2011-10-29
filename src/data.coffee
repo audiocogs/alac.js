@@ -17,6 +17,8 @@
 #
 
 class Data
+    global.Data = Data
+    
     constructor: (@data) ->
         @pos = 0
         @length = @data.length
@@ -37,6 +39,9 @@ class Data
     readInt32: ->
         int = @readUInt32()
         if int >= 0x80000000 then int - 0x100000000 else int
+        
+    readUInt64: ->
+        @readUInt32() * 0x100000000 + @readUInt32()
         
     readUInt16: ->
         b1 = @readByte() << 8
