@@ -1,4 +1,9 @@
-require "./lib/alac"
+require "./src/ALAC"
+require "./src/ALACDecoder"
+require "./src/data"
+require "./src/ag_dec"
+require "./src/dp_dec"
+require "./src/matrix_dec"
 fs = require "fs"
 
 # basic CAF parser... reads magic cookie and data packets
