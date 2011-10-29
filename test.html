@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ALAC</title>
+</head>
+<body>
+    <p>Open your favorite JS console! :)</p>
+    <p>Make sure you run build.sh after every change.</p>
+    <script src="lib/alac.js"></script>
+    <script>
+        // Load the CAF file
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "out.caf", true);
+        xhr.responseType = "arraybuffer";
+        
+        xhr.onload = function() {
+            var file = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer),
+                data = new Data(file);
+                
+            while (data.pos < data.length) {
+                var type = data.readString(4);
+                
+                switch (type) {
+                    case 'kuki':
+                        var size = data.readUInt64(),
+                            cookie = data.slice(data.pos, data.pos + size);
+                            
+                        break;
+                    
+                    case 'pakt':
+                        var size = data.readUInt64(),
+                            packets = data.slice(data.pos, data.pos + size);
+                            
+                        break;
+                }
+                
+                if (cookie && packets) break;
+            }
+            
+            var decoder = new ALACDecoder(cookie);
+        }
+        
+        xhr.send(null)
+    </script>
+</body>
+</html>

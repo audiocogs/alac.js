@@ -17,7 +17,7 @@
 #
 
 class Data
-    global.Data = Data
+    window.Data = Data
     
     constructor: (@data) ->
         @pos = 0
@@ -67,7 +67,7 @@ class Data
         return ret.join ''
                 
     slice: (start, end) ->
-        @data.slice start, end
+        @data.subarray(start, end)
         
     read: (bytes) ->
         buf = []
@@ -75,5 +75,3 @@ class Data
             buf.push @readByte()
             
         return buf
-        
-module.exports = Data

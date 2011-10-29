@@ -17,7 +17,7 @@
 #
 
 class ALACDecoder
-    global.ALACDecoder = this
+    window.ALACDecoder = this
     
     constructor: (magicCookie) ->
         cookie = new Data(magicCookie)
