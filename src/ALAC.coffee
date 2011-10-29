@@ -1,7 +1,7 @@
 #
 #  Original C(++) version by Apple, http://alac.macosforge.org
 #
-#  Javascript port by Jens Nockert of OFMLabs, https://github.com/ofmlabs/alac
+#  Javascript port by Jens Nockert and Devon Govett of OFMLabs, https://github.com/ofmlabs/alac
 # 
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
