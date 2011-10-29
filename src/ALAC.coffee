@@ -26,6 +26,7 @@ ALAC.maxCoefs = 16
 ALAC.defaultFramesPerPacket = 4096
 
 ALAC.errors =
+    noError: 0
     unimplementedError: -4
     fileNotFoundError: -43
     paramError: -50
