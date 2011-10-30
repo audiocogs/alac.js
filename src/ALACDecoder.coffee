@@ -26,17 +26,14 @@ class ALACDecoder
         
         if CSCompareToString(@cookie, offset + 4, 'frma', 0, 4)
             offset += 12; remaining -= 12
-            
             console.log "Skipping 'frma'"
         
         if CSCompareToString(cookie, offset + 4, 'alac', 0, 4)
             offset += 12; remaining -= 12
-            
             console.log "Skipping 'alac'"
         
         if remaining < 24
             console.log "Cookie too short"
-            
             return ALAC.errors.paramError
         
         @config = 
