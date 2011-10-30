@@ -22,8 +22,6 @@ class ALACDecoder
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
-        console.log(new Uint8Array(@cookie))
-        
         if CSCompareToString(@cookie, offset + 4, 'frma', 0, 4)
             offset += 12; remaining -= 12
             
@@ -64,8 +62,62 @@ class ALACDecoder
         
         return ALAC.errors.noError
         
-    decode: (input, output, numSamples, numChannels) ->
-        data = new Data(input)
-        activeElements = channelIndex = 0
+    decode: (input, offset, samples, channels) ->
+        unless channels > 0
+            console.log "Requested less than a single channel"
+            
+            return ALAC.errors.paramError
         
-        # TODO: complete
+        @activeElements = 0
+        
+        output = CSAlloc(samples * channels * @config.bitDepth / 8)
+        
+        [offset, channelIndex, input_a] = [offset * 8, 0, new Int16Array(input)]
+        
+        status = ALAC.errors.noError
+        
+        while status == ALAC.errors.noError
+            tag = CSLoadFewBits(input, offset, 3)
+            
+            switch tag
+                when 0, 3   # ID_SCE, Single Channel Element; ID_LFE, LFE Channel Element
+                    console.log("LFE or SCE element")
+                    
+                    break
+                when 1      # ID_CPE, Channel Pair Element
+                    console.log("CPE element")
+                    
+                    break
+                when 2, 5   # ID_CCE, Coupling Channel Element; ID_PCE
+                    console.log("Unsupported element")
+                    
+                    return ALAC.errors.paramError
+                when 4      # ID_DSE, Data Stream Element
+                    console.log("Data Stream element, ignoring")
+                    
+                    status = this.dataStreamElement(input, offset)
+                    
+                    break
+                when 6      # ID_FIL, Fill element
+                    console.log("Fill element, ignoring")
+                    
+                    status = this.fillElement(input, offset)
+                    
+                    break
+                when 7      # ID_END, End element
+                    console.log("End of frame")
+                    
+                    return status
+                else
+                    console.log("Error in frame")
+                
+                    return ALAC.errors.paramError
+                
+            
+            if channelIndex > channels
+                console.log("Channel Index is higher than the amount of channels")
+                
+                break
+        
+        return [status, output]
+    

@@ -12,13 +12,13 @@
         // Load the CAF file
         var xhr = new XMLHttpRequest();
         // xhr.open("GET", "out.caf", true);
-        xhr.open("GET", "cut.caf", true);
-        // xhr.open("GET", "02 - End of Daylight.caf", true);
+        // xhr.open("GET", "cut.caf", true);
+        xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
         
         xhr.onload = function() {
-            var file = xhr.response || xhr.mozResponseArrayBuffer;
+            var file = xhr.response;
             var container = {};
             
             if (CSCompareToString(file, 0, 'caff', 0, 4)) {
@@ -67,7 +67,9 @@
                 return;
             }
             
-            while (offset < file.byteLength) {
+            var decoder, data;
+            
+            while (offset < file.byteLength && (decoder == null || data == null)) {
                 var type = CSBufferToString(file, offset, 4);
                 var throwaway = CSLoadBigUInt32(file, offset + 4);
                 var size = CSLoadBigUInt32(file, offset + 8);
@@ -82,25 +84,39 @@
                     case 'kuki':
                         console.log("Found cookie, initializing decoder");
                         
-                        var cookie = CSRead(file, offset, size);
+                        decoder = new ALACDecoder(CSRead(file, offset, size));
                         
-                        decoder = new ALACDecoder(cookie);
+                        break;
+                    case 'data':
+                        console.log("Found data")
                         
-                        return;
+                        if (size == -1) {
+                            console.log("Unknown data length")
+                            
+                            size = file.byteLength - offset;
+                        }
+                        
+                        data = CSRead(file, offset, size);
+                        
+                        break;
                     default:
                         console.log("Found random type, '" + type + "'")
+                        
+                        break;
                     
-                    // case 'pakt':
-                    //     var size = data.readUInt64(),
-                    //         packets = data.slice(data.pos, data.pos + size);
-                    //         
-                    //     break;
                 }
+                
+                console.log(decoder == null || data == null)
                 
                 offset += size;
             }
             
-            console.log("Failed to parse .caf")
+            if (decoder != null && data != null) {
+                console.log("Trying to decode!")
+                decoder.decode(data, 0, 4096, 2)
+            } else {
+                console.log("Failed to parse .caf")
+            }
         }
         
         xhr.send(null)
