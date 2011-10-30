@@ -19,6 +19,15 @@
 class ALACDecoder
     window.ALACDecoder = this
     
+    ID_SCE = 0 # Single Channel Element
+    ID_CPE = 1 # Channel Pair Element
+    ID_CCE = 2 # Coupling Channel Element
+    ID_LFE = 3 # LFE Channel Element
+    ID_DSE = 4 # not yet supported
+    ID_PCE = 5
+    ID_FIL = 6
+    ID_END = 7
+    
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
@@ -62,116 +71,112 @@ class ALACDecoder
     decode: (input, offset, samples, channels) ->
         unless channels > 0
             console.log "Requested less than a single channel"
-            
             return ALAC.errors.paramError
         
         @activeElements = 0
+        channelIndex = 0
         
-        [coefsU, coefsV] = [new Int16Array(32), new Int16Array(32)]
-        
+        coefsU = new Int16Array(32)
+        coefsV = new Int16Array(32)
+                
         output = CSAlloc(samples * channels * @config.bitDepth / 8)
+        input_a = new Int16Array(input)
         
-        [offset, channelIndex, input_a] = [offset * 8, 0, new Int16Array(input)]
-        
+        offset *= 8
         status = ALAC.errors.noError
         
-        while status == ALAC.errors.noError
-            tag = CSLoadFewBits(input, offset, 3); offset += 3
+        while status is ALAC.errors.noError
+            tag = CSLoadFewBits(input, offset, 3)
+            offset += 3
             
             switch tag
-                when 0, 3   # ID_SCE, Single Channel Element; ID_LFE, LFE Channel Element
+                when ID_SCE, ID_LFE
                     console.log("LFE or SCE element")
                     
                     # Mono / LFE channel
-                    
                     elementInstanceTag = CSLoadFewBits(input, offset, 4); offset += 4
+                    @activeElements |= (1 << elementInstanceTag)
                     
-                    @activeElements = @activeElements | (1 << elementInstanceTag)
+                    # read the 12 unused header bits
+                    unused = CSLoadManyBits(input, offset, 12)
+                    return ALAC.errors.paramError unless unused is 0
+                    offset += 12
                     
-                    unused = CSLoadManyBits(input, offset, 12); offset += 12
-                    
-                    return ALAC.errors.paramError unless unused == 0
-                    
+                    # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = CSLoadFewBits(input, offset, 4); offset += 4
-                    
                     partialFrame = headerByte >> 3
-                    
                     bytesShifted = (headerByte >> 1) & 0x3
-                    
-                    return ALAC.errors.paramError unless bytesShifted == 3
+                    return ALAC.errors.paramError unless bytesShifted is 3
                     
                     shift = bytesShifted * 8
-                    
                     escapeFlag = headerByte & 0x1
-                    
                     chanBits = @config.bitDepth - shift
                     
-                    unless partialFrame == 0
-                        samples = CSLoadManyBits(input, offset, 16); offset += 16
-                        samples = samples | CSLoadManyBits(input, offset, 16); offset += 16
+                    # check for partial frame to override requested samples
+                    if partialFrame isnt 0
+                        samples = CSLoadManyBits(input, offset, 16) << 16; offset += 16
+                        samples |= CSLoadManyBits(input, offset, 16);      offset += 16
                     
-                    if escapeFlag == 0
+                    if escapeFlag is 0
+                        # compressed frame, read rest of parameters
                         mixBits     = CSLoadFewBits(input, offset, 8); offset += 8
                         mixRes      = CSLoadFewBits(input, offset, 8); offset += 8 # TODO: Should be signed
                         
                         headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
                         modeU       = headerByte >> 4
-                        denShiftU   = headerByte & 0x1F
+                        denShiftU   = headerByte & 0xf
                         
                         headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
                         pbFactorU   = headerByte >> 5
-                        numU        = headerByte & 0x1F
+                        numU        = headerByte & 0x1f
                         
-                        for i in [0 ... numU] by 1
+                        for i in [0...numU]
                             coefsU[i] = CSLoadManyBits(bits, 16); offset += 16
                         
-                        offset += (bytesShifted * 8) * samples unless bytesShifted == 0
+                        # if shift active, skip the the shift buffer but remember where it starts
+                        if bytesShifted isnt 0
+                            offset += shift * samples
                         
                         # TODO: Fix dyn_decomp, I am not sure what the api should be
-                        params = Aglib.ag_params(@config.mb, pb * pbFactorU / 4, @config.kb, samples, samples, @config.maxRun)
-                        
+                        params = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(params, input, offset, @predictor, samples, chanBits)
+                        return status unless status is ALAC.errors.noError
                         
-                        return status unless status = ALAC.errors.noError
-                        
-                        if modeU == 0
+                        if modeU is 0
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         else
                             # TODO: Needs the optimizations?
+                            # the special "numActive == 31" mode can be done in-place
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         
                     else
+                        # uncompressed frame, copy data into the mix buffer to use common output code
                         shift = 32 - chanBits
                         
                         if chanBits <= 16
-                            for i in [0 ... samples] by 1
+                            for i in [0...samples]
                                 val = CSLoadManyBits(input, offset, chanBits); offset += chanBits
                                 val = (val << shift) >> shift
-                                
-                                mixBufferU[i] = val
+                                @mixBufferU[i] = val
                             
                         else
                             # TODO: Fix with chanbits > 16
-                            
                             console.log("Failing, not less than 16 bits per channel")
-                            
                             return -9000
                         
                         maxBits = mixRes = 0
-                        
-                        bits1 = chanbits * samples
-                        
+                        bits1 = chanbits * samples # TODO: fix
                         bytesShifted = 0
                     
-                    unless bytesShifted == 0
+                    # now read the shifted values into the shift buffer
+                    if bytesShifted isnt 0
                         shift = bytesShifted * 8
                         
-                        for i in [0 ... samples] by 1
-                            shiftBuffer[i] = CSLoadManyBits(shiftBits, shift)
-                        
-                        console.log("Something")
+                        for i in [0...samples]
+                            @shiftBuffer[i] = CSLoadManyBits(shiftBits, shift)
                     
+                    # convert 32-bit integers into output buffer
                     switch @config.bitDepth
                         when 16
                             console.log("16-bit output, yaay!")
@@ -186,37 +191,29 @@ class ALACDecoder
                         
                     
                     channelIndex += 1
-                    
                     outSamples = samples
                     
-                    break
-                when 1      # ID_CPE, Channel Pair Element
+                when ID_CPE
                     console.log("CPE element")
                     
-                    break
-                when 2, 5   # ID_CCE, Coupling Channel Element; ID_PCE
+                when ID_CCE, ID_PCE
                     console.log("Unsupported element")
-                    
                     return ALAC.errors.paramError
-                when 4      # ID_DSE, Data Stream Element
-                    console.log("Data Stream element, ignoring")
                     
+                when ID_DSE
+                    console.log("Data Stream element, ignoring")
                     status = this.dataStreamElement(input, offset)
                     
-                    break
-                when 6      # ID_FIL, Fill element
+                when ID_FIL
                     console.log("Fill element, ignoring")
-                    
                     status = this.fillElement(input, offset)
                     
-                    break
-                when 7      # ID_END, End element
+                when ID_END
                     console.log("End of frame")
-                    
                     return status
+                    
                 else
                     console.log("Error in frame")
-                
                     return ALAC.errors.paramError
                 
             
