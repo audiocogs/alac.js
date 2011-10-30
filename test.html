@@ -11,14 +11,14 @@
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        // xhr.open("GET", "out.caf", true);
-        xhr.open("GET", "cut.caf", true);
-        // xhr.open("GET", "02 - End of Daylight.caf", true);
+        xhr.open("GET", "out.caf", true);
+        //xhr.open("GET", "cut.caf", true);
+        //xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
         
         xhr.onload = function() {
-            var file = xhr.response || xhr.mozResponseArrayBuffer;
+            var file = xhr.response;
             var container = {};
             
             if (CSCompareToString(file, 0, 'caff', 0, 4)) {
@@ -40,7 +40,6 @@
                 
                 if (throwaway != 0 || size != 32) {
                     console.log("Invalid 'desc' size, should be 24");
-                    
                     return;
                 }
                 
@@ -57,13 +56,11 @@
                 console.log(format);
             } else {
                 console.log("Invalid CAF, header is not followed by 'desc'");
-                
                 return;
             }
             
             if (format.formatID != 'alac') {
                 console.log("CAF does not contain Apple Lossless audio")
-                
                 return;
             }
             
@@ -81,12 +78,10 @@
                 switch (type) {
                     case 'kuki':
                         console.log("Found cookie, initializing decoder");
-                        
                         var cookie = CSRead(file, offset, size);
-                        
                         decoder = new ALACDecoder(cookie);
-                        
                         return;
+                        
                     default:
                         console.log("Found random type, '" + type + "'")
                     
@@ -100,7 +95,7 @@
                 offset += size;
             }
             
-            console.log("Failed to parse .caf")
+            console.log("Failed to parse .caf");
         }
         
         xhr.send(null);
