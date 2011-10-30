@@ -29,11 +29,11 @@ class Dplib
     @unpc_block: (pc1, out, num, coefs, active, chanbits, denshift) ->
         chanshift = 32 - chanbits
         denhalf = 1 << (denshift - 1)
-
+        
         pc1_a = new Int32Array(pcl)
         out_a = new Int32Array(out)
         coefs_a = new Int32Array(coefs)
-
+        
         out[0] = pc1[0];
         
         # just copy if active == 0
@@ -44,42 +44,43 @@ class Dplib
         # short-circuit if numactive is 31    
         else if active is 31
             prev = out_a[0]
-
+            
             for i in [1...num]
                 del = pcl_a[i] + prev
                 prev = (del << chanshift) >> chanshift
                 out_a[i] = prev
-
+            
             return
-
+        
         for i in [1...active]
             del = pc1_a[i] + out_a[i - 1]
             out_a[i] = (del << chanshift) >> chanshift
-
+        
         lim = active + 1
-
+        
         # if active == 4 # Optimization for active == 4
         # if active == 8 # Optimization for active == 8
         # else           # General case
-
+        
         for i in [lim...num]
             sum1 = 0
             top = out_a[i - lim]
             
             for j in [0...active]
                 sum1 += coefs_a[j] * (out_a[i - j - 1] - top)
-
+                
             del = del0 = pc1[i]
             sg  = del / Math.abs(del)
-
+            
             del += top + ((sum1 + denhalf) >> denshift)
             out_a[i] = (del << chanshift) >> chanshift
-
+            
             for j in [active-1..0] by -1 # Modified from Apple ALAC to remove the two loops
                 dd = top - out_a[i - j - 1]
                 coefs_a[j] -= sg * dd / Math.abs(dd)
                 del0 -= (active - k) * (Math.abs(dd) >> denshift)
-
+                
                 break if sg * del0 <= 0
                 
         return # otherwise CoffeeScript will try to return an array
+    

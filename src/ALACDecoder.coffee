@@ -67,6 +67,8 @@ class ALACDecoder
         
         @activeElements = 0
         
+        [coefsU, coefsV] = [new Int16Array(32), new Int16Array(32)]
+        
         output = CSAlloc(samples * channels * @config.bitDepth / 8)
         
         [offset, channelIndex, input_a] = [offset * 8, 0, new Int16Array(input)]
@@ -74,11 +76,118 @@ class ALACDecoder
         status = ALAC.errors.noError
         
         while status == ALAC.errors.noError
-            tag = CSLoadFewBits(input, offset, 3)
+            tag = CSLoadFewBits(input, offset, 3); offset += 3
             
             switch tag
                 when 0, 3   # ID_SCE, Single Channel Element; ID_LFE, LFE Channel Element
                     console.log("LFE or SCE element")
+                    
+                    # Mono / LFE channel
+                    
+                    elementInstanceTag = CSLoadFewBits(input, offset, 4); offset += 4
+                    
+                    @activeElements = @activeElements | (1 << elementInstanceTag)
+                    
+                    unused = CSLoadManyBits(input, offset, 12); offset += 12
+                    
+                    return ALAC.errors.paramError unless unused == 0
+                    
+                    headerByte = CSLoadFewBits(input, offset, 4); offset += 4
+                    
+                    partialFrame = headerByte >> 3
+                    
+                    bytesShifted = (headerByte >> 1) & 0x3
+                    
+                    return ALAC.errors.paramError unless bytesShifted == 3
+                    
+                    shift = bytesShifted * 8
+                    
+                    escapeFlag = headerByte & 0x1
+                    
+                    chanBits = @config.bitDepth - shift
+                    
+                    unless partialFrame == 0
+                        samples = CSLoadManyBits(input, offset, 16); offset += 16
+                        samples = samples | CSLoadManyBits(input, offset, 16); offset += 16
+                    
+                    if escapeFlag == 0
+                        mixBits     = CSLoadFewBits(input, offset, 8); offset += 8
+                        mixRes      = CSLoadFewBits(input, offset, 8); offset += 8 # TODO: Should be signed
+                        
+                        headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
+                        modeU       = headerByte >> 4
+                        denShiftU   = headerByte & 0x1F
+                        
+                        headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
+                        pbFactorU   = headerByte >> 5
+                        numU        = headerByte & 0x1F
+                        
+                        for i in [0 ... numU] by 1
+                            coefsU[i] = CSLoadManyBits(bits, 16); offset += 16
+                        
+                        offset += (bytesShifted * 8) * samples unless bytesShifted == 0
+                        
+                        # TODO: Fix dyn_decomp, I am not sure what the api should be
+                        params = Aglib.ag_params(@config.mb, pb * pbFactorU / 4, @config.kb, samples, samples, @config.maxRun)
+                        
+                        status = Aglib.dyn_decomp(params, input, offset, @predictor, samples, chanBits)
+                        
+                        return status unless status = ALAC.errors.noError
+                        
+                        if modeU == 0
+                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
+                        else
+                            # TODO: Needs the optimizations?
+                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
+                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
+                        
+                    else
+                        shift = 32 - chanBits
+                        
+                        if chanBits <= 16
+                            for i in [0 ... samples] by 1
+                                val = CSLoadManyBits(input, offset, chanBits); offset += chanBits
+                                val = (val << shift) >> shift
+                                
+                                mixBufferU[i] = val
+                            
+                        else
+                            # TODO: Fix with chanbits > 16
+                            
+                            console.log("Failing, not less than 16 bits per channel")
+                            
+                            return -9000
+                        
+                        maxBits = mixRes = 0
+                        
+                        bits1 = chanbits * samples
+                        
+                        bytesShifted = 0
+                    
+                    unless bytesShifted == 0
+                        shift = bytesShifted * 8
+                        
+                        for i in [0 ... samples] by 1
+                            shiftBuffer[i] = CSLoadManyBits(shiftBits, shift)
+                        
+                        console.log("Something")
+                    
+                    switch @config.bitDepth
+                        when 16
+                            console.log("16-bit output, yaay!")
+                            
+                            # TODO: Do something
+                            
+                            break
+                        else
+                            console.log("Only supports 16-bit samples right now")
+                            
+                            return -9000
+                        
+                    
+                    channelIndex += 1
+                    
+                    outSamples = samples
                     
                     break
                 when 1      # ID_CPE, Channel Pair Element
@@ -111,10 +220,8 @@ class ALACDecoder
                     return ALAC.errors.paramError
                 
             
-            if channelIndex > channels
-                console.log("Channel Index is higher than the amount of channels")
-                
-                break
+        if channelIndex > channels
+            console.log("Channel Index is higher than the amount of channels")
         
         return [status, output]
     

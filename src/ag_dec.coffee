@@ -141,26 +141,23 @@ class Aglib
         sw:  s
         maxrun: maxrun
         
-    @dyn_decomp: (params, bitstream, pc, samples, size) ->
-        {pb, kb, wb, mb0:mb} = params
-
-        unless bitstream and pc
-            return ALAC.errors.paramError
+    @dyn_decomp: (params, input, offset, pc, samples, size) ->
+        {pb, kb, wb, mb0: mb} = params
         
         {cur:input, bitIndex:bitPos, byteSize:maxPos} = bitstream
         maxPos *= 8
         
         zmode = c = status = outPtr = 0
         out = new Uint32Array(pc)
-
+        
         while c < samples
             # bail if we've run off the end of the buffer
             unless bitPos < maxPos
                 return ALAC.error.paramError
-                
+            
             m = mb >> QBSHIFT
             k = lg3a(m)
-
+            
             k = Math.min(k, kb)
             m = (1 << k) - 1
             [n, bitPos] = dyn_get_32(input, bitPos, m, k, maxSize)
@@ -169,23 +166,23 @@ class Aglib
             ndecode = n + zmode
             multiplier = -(ndecode & 1) | 1
             del = ((ndecode + 1) >> 1) * multiplier
-
+            
             out[outPtr++] = del
             c++
-
+            
             mb = pb * (n + zmode) + mb - ((pb * mb) >> QBSHIFT)
             
             # update mean tracking
             if n > N_MAX_MEAN_CLAMP
                 mb = N_MEAN_CLAMP_VAL
-
+                
             zmode = 0
-
+            
             if ((mb << MMULSHIFT) < QB) && (c < samples)
                 zmode = 1
                 k = lead(mb) - BITOFF + ((mb + MOFF) >> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
-
+                
                 [n, bitPos] = dyn_get_16(input, bitPos, mz, k)
                 
                 unless c + 1 <= samples
@@ -198,9 +195,11 @@ class Aglib
                 zmode = 0 if z >= 65535
                     
                 mb = 0
+            
         
         bitstream.bitIndex = bitPos
         bitstream.cur += bitPos >> 3
         butstream.bitIndex &= 7
                 
         return status
+    
