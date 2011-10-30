@@ -11,9 +11,9 @@
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        // xhr.open("GET", "out.caf", true);
-        // xhr.open("GET", "cut.caf", true);
-        xhr.open("GET", "02 - End of Daylight.caf", true);
+        xhr.open("GET", "out.caf", true);
+        //xhr.open("GET", "cut.caf", true);
+        //xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
         
@@ -40,7 +40,6 @@
                 
                 if (throwaway != 0 || size != 32) {
                     console.log("Invalid 'desc' size, should be 24");
-                    
                     return;
                 }
                 
@@ -57,13 +56,11 @@
                 console.log(format);
             } else {
                 console.log("Invalid CAF, header is not followed by 'desc'");
-                
                 return;
             }
             
             if (format.formatID != 'alac') {
                 console.log("CAF does not contain Apple Lossless audio")
-                
                 return;
             }
             
@@ -83,6 +80,7 @@
                 switch (type) {
                     case 'kuki':
                         console.log("Found cookie, initializing decoder");
+<<<<<<< HEAD
                         
                         decoder = new ALACDecoder(CSRead(file, offset, size));
                         
@@ -99,6 +97,12 @@
                         data = CSRead(file, offset, size);
                         
                         break;
+=======
+                        var cookie = CSRead(file, offset, size);
+                        decoder = new ALACDecoder(cookie);
+                        return;
+                        
+>>>>>>> 7b784821a2dbf46d484647d676cc570a2e51cf81
                     default:
                         console.log("Found random type, '" + type + "'")
                         
@@ -111,15 +115,19 @@
                 offset += size;
             }
             
+<<<<<<< HEAD
             if (decoder != null && data != null) {
                 console.log("Trying to decode!")
                 decoder.decode(data, 0, 4096, 2)
             } else {
                 console.log("Failed to parse .caf")
             }
+=======
+            console.log("Failed to parse .caf");
+>>>>>>> 7b784821a2dbf46d484647d676cc570a2e51cf81
         }
         
-        xhr.send(null)
+        xhr.send(null);
     </script>
 </body>
 </html>
