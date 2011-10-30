@@ -29,7 +29,7 @@ class ALACDecoder
             
             console.log "Skipping 'frma'"
         
-        if CSCompareToString(@cookie, offset + 4, 'alac', 0, 4)
+        if CSCompareToString(cookie, offset + 4, 'alac', 0, 4)
             offset += 12; remaining -= 12
             
             console.log "Skipping 'alac'"
@@ -40,17 +40,17 @@ class ALACDecoder
             return ALAC.errors.paramError
         
         @config = 
-            frameLength:        CSLoadBigUInt32(@cookie, offset + 0)
-            compatibleVersion:  CSLoadUInt8(@cookie, offset + 4)
-            bitDepth:           CSLoadUInt8(@cookie, offset + 5)
-            pb:                 CSLoadUInt8(@cookie, offset + 6)
-            mb:                 CSLoadUInt8(@cookie, offset + 7)
-            kb:                 CSLoadUInt8(@cookie, offset + 8)
-            numChannels:        CSLoadUInt8(@cookie, offset + 9)
-            maxRun:             CSLoadBigUInt16(@cookie, offset + 10)
-            maxFrameBytes:      CSLoadBigUInt32(@cookie, offset + 12)
-            avgBitRage:         CSLoadBigUInt32(@cookie, offset + 16)
-            sampleRate:         CSLoadBigUInt32(@cookie, offset + 20)
+            frameLength:        CSLoadBigUInt32(cookie, offset + 0)
+            compatibleVersion:  CSLoadUInt8(cookie, offset + 4)
+            bitDepth:           CSLoadUInt8(cookie, offset + 5)
+            pb:                 CSLoadUInt8(cookie, offset + 6)
+            mb:                 CSLoadUInt8(cookie, offset + 7)
+            kb:                 CSLoadUInt8(cookie, offset + 8)
+            numChannels:        CSLoadUInt8(cookie, offset + 9)
+            maxRun:             CSLoadBigUInt16(cookie, offset + 10)
+            maxFrameBytes:      CSLoadBigUInt32(cookie, offset + 12)
+            avgBitRage:         CSLoadBigUInt32(cookie, offset + 16)
+            sampleRate:         CSLoadBigUInt32(cookie, offset + 20)
             
         console.log @config
         
