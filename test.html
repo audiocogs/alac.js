@@ -7,37 +7,100 @@
     <p>Open your favorite JS console! :)</p>
     <p>Make sure you run build.sh after every change.</p>
     <script src="lib/alac.js"></script>
+    <script src="vendor/core.js/js/core.js"></script>
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", "out.caf", true);
+        // xhr.open("GET", "out.caf", true);
+        xhr.open("GET", "cut.caf", true);
+        // xhr.open("GET", "02 - End of Daylight.caf", true);
+        
         xhr.responseType = "arraybuffer";
         
         xhr.onload = function() {
-            var file = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer),
-                data = new Data(file);
+            var file = xhr.response || xhr.mozResponseArrayBuffer;
+            var container = {};
+            
+            if (CSCompareToString(file, 0, 'caff', 0, 4)) {
+                container.fileVersion = CSLoadBigUInt16(file, 4);
+                container.fileFlags = CSLoadBigUInt16(file, 6);
                 
-            while (data.pos < data.length) {
-                var type = data.readString(4);
+                console.log(container);
+            } else {
+                console.log("Invalid CAF, does not begin with 'caff'");
+                
+                return;
+            }
+            
+            var offset = 8, format = {};
+            
+            if (CSCompareToString(file, offset, 'desc', 0, 4)) {
+                var throwaway = CSLoadBigUInt32(file, offset + 4);
+                var size = CSLoadBigUInt32(file, offset + 8);
+                
+                if (throwaway != 0 || size != 32) {
+                    console.log("Invalid 'desc' size, should be 24");
+                    
+                    return;
+                }
+                
+                format.sampleRate = CSLoadBigFloat64(file, offset + 12);
+                format.formatID = CSBufferToString(file, offset + 20, 4);
+                format.formatFlags = CSLoadBigUInt16(file, offset + 24);
+                format.bytesPerPacket = CSLoadBigUInt16(file, offset + 28);
+                format.framesPerPacket = CSLoadBigUInt16(file, offset + 32);
+                format.channelsPerFrame = CSLoadBigUInt16(file, offset + 36);
+                format.bitsPerChannel = CSLoadBigUInt16(file, offset + 40);
+                
+                offset += 44;
+                
+                console.log(format);
+            } else {
+                console.log("Invalid CAF, header is not followed by 'desc'");
+                
+                return;
+            }
+            
+            if (format.formatID != 'alac') {
+                console.log("CAF does not contain Apple Lossless audio")
+                
+                return;
+            }
+            
+            while (offset < file.byteLength) {
+                var type = CSBufferToString(file, offset, 4);
+                var throwaway = CSLoadBigUInt32(file, offset + 4);
+                var size = CSLoadBigUInt32(file, offset + 8);
+                
+                if (throwaway != 0) {
+                  console.log("Chunk is over 4GB, failing");
+                }
+                
+                offset += 12;
                 
                 switch (type) {
                     case 'kuki':
-                        var size = data.readUInt64(),
-                            cookie = data.slice(data.pos, data.pos + size);
-                            
-                        break;
+                        console.log("Found cookie, initializing decoder");
+                        
+                        var cookie = CSRead(file, offset, size);
+                        
+                        decoder = new ALACDecoder(cookie);
+                        
+                        return;
+                    default:
+                        console.log("Found random type, '" + type + "'")
                     
-                    case 'pakt':
-                        var size = data.readUInt64(),
-                            packets = data.slice(data.pos, data.pos + size);
-                            
-                        break;
+                    // case 'pakt':
+                    //     var size = data.readUInt64(),
+                    //         packets = data.slice(data.pos, data.pos + size);
+                    //         
+                    //     break;
                 }
                 
-                if (cookie && packets) break;
+                offset += size;
             }
             
-            var decoder = new ALACDecoder(cookie);
+            console.log("Failed to parse .caf")
         }
         
         xhr.send(null)

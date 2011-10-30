@@ -195,8 +195,7 @@ class Aglib
                     out[outPtr++] = 0
                     c++
                     
-                if z >= 65535
-                    zmode = 0
+                zmode = 0 if z >= 65535
                     
                 mb = 0
         
