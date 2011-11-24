@@ -145,31 +145,33 @@ class Aglib
         sw:  s
         maxrun: maxrun
         
-    @dyn_decomp: (params, input, pc, samples, maxSize) ->
+    @dyn_decomp: (params, data, pc, samples, maxSize) ->
         {pb, kb, wb, mb0: mb} = params
         
-        {data, pos:bitPos, length:maxPos} = input
-        startPos = bitPos
+        console.log("\tPC", pc)
+        console.log("\tSamples, Max Size", samples, maxSize)
         
-        zmode = c = status = outPtr = 0
-        out = new Uint32Array(pc)
+        start = data.copy()
         
-        console.log 'max', maxSize
+        zmode = 0
+        c = 0
+        
+        status = ALAC.errors.noError
+        
+        # out = new Uint32Array(pc)
         
         while c < samples
             # bail if we've run off the end of the buffer
             unless bitPos < maxPos
-                return ALAC.errors.paramError
+                return [ALAC.errors.paramError]
             
-            m = mb >> QBSHIFT
+            m = mb >>> QBSHIFT
             k = lg3a(m)
             
             k = Math.min(k, kb)
             m = (1 << k) - 1
             
-            #console.log 'kkk', m, k
-            
-            [n, bitPos] = dyn_get_32(input, bitPos, m, k, maxSize)
+            [n, bitPos] = dyn_get_32(data, bitPos, m, k, maxSize)
             
             # least significant bit is sign bit
             ndecode = n + zmode

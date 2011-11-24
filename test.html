@@ -11,7 +11,7 @@
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", "out.caf", true);
+        xhr.open("GET", "eod-begin.caf", true);
         //xhr.open("GET", "cut.caf", true);
         //xhr.open("GET", "02 - End of Daylight.caf", true);
         
@@ -66,8 +66,16 @@
                     case 'data':
                         console.log("Found data");
                         
-                        var out = decoder.decode(data.slice(data.pos + 4, data.pos + size - 8), 0, 4096, 2);
-                        console.log("output", out);
+                        var dataOffset = data.pos + 4, dataSize = data.pos + size - 8, status = 0;
+                        
+                        bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
+                        
+                        while (status == 0) {
+                          var out = decoder.decode(bitbuffer, 0, 4096, 2);
+                          
+                          status = out[0]
+                        }
+                        
                         return;
                         
                     default:

@@ -171,7 +171,12 @@ class BitBuffer
         @pos += bits
         @offset += (@pos >>> 3)
         @pos &= 7
+    
+    align: () ->
+        if @pos != 0
+            this.advance(8 - @pos)
         
+    
     copy: ->
         bit = new BitBuffer(@data)
         bit.pos = @pos

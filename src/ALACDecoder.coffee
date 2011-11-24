@@ -70,15 +70,13 @@ class ALACDecoder
             
         return ALAC.errors.noError
         
-    decode: (input, offset, samples, channels) ->
+    decode: (data, offset, samples, channels) ->
         unless channels > 0
             console.log "Requested less than a single channel"
             return ALAC.errors.paramError
         
         @activeElements = 0
         channelIndex = 0
-        
-        data = new BitBuffer(input)
         
         coefsU = new Int16Array(32)
         coefsV = new Int16Array(32)
@@ -88,6 +86,8 @@ class ALACDecoder
         status = ALAC.errors.noError
         
         while status is ALAC.errors.noError
+            pb = @config.pb
+            
             tag = data.readSmall(3)
             
             switch tag
@@ -200,6 +200,8 @@ class ALACDecoder
                 when ID_CPE
                     console.log("CPE element")
                     
+                    console.log("Channel Index", channelIndex) # DEBUG
+                    
                     if (channelIndex + 2) > channels
                         # TODO: GOTO NOMOARCHANNELS
                         console.log("No more channels, please")
@@ -249,13 +251,19 @@ class ALACDecoder
                         mixBits = data.read(8)
                         mixRes = data.read(8)
                         
+                        console.log("Mix Bits, Mix Res", mixBits, mixRes) # DEBUG
+                        
                         headerByte = data.read(8)
                         modeU = headerByte >>> 4
                         denShiftU = headerByte & 0x0F
                         
+                        console.log("Mode U, DenShift U", modeU, denShiftU) # DEBUG
+                        
                         headerByte = data.read(8)
                         pbFactorU = headerByte >>> 5
                         numU = headerByte & 0x1F
+                        
+                        console.log("pbFactor U, Num U", pbFactorU, numU) # DEBUG
                         
                         for i in [0 ... numU] by 1
                             coefsU[i] = data.read(16)
@@ -264,20 +272,28 @@ class ALACDecoder
                         modeV = headerByte >>> 4
                         denShiftV = headerByte & 0x0F
                         
+                        console.log("Mode V, DenShift V", modeV, denShiftV) # DEBUG
+                        
                         headerByte = data.read(8)
                         pbFactorV = headerByte >>> 5
                         numV = headerByte & 0x1F;
                         
+                        console.log("pbFactor V, Num V", pbFactorU, numV) # DEBUG
+                        
                         for i in [0 ... numV] by 1
-                            coefsV = data.read(16)
+                            coefsV[i] = data.read(16)
+                        
+                        console.log("Coefs U, V", coefsU, coefsV)
                         
                         if bytesShifted != 0
                             shiftbits = data.copy()
                             
                             bits.advance((bytesShifted * 8) * samples)
                         
-                        agParams = Aglib.ag_params(@config.mb, pb * pbFactorU / 4, @config.kb, samples, samples, @config.maxRun)
-                        status = Aglib.dyn_decomp(agParams, bits, @predictor, samples, chanBits, data) # data might be wrong.
+                        console.log("Bytes Shifted", bytesShifted)
+                        
+                        agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
+                        [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
                             console.log("Mom also said there should be no error")
@@ -289,6 +305,20 @@ class ALACDecoder
                         else
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
+                        
+                        agParams = Aglib.ag_params(@config.mb, (pb * pbFactorV) / 4, @config.kb, samples, samples, @config.maxRun)
+                        [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
+                        
+                        if status != ALAC.errors.noError
+                            console.log("Mom also said there should be no error")
+                            
+                            return status
+                        
+                        if modeU == 0
+                            Dplib.unpc_block(@predictor, @predictor, samples, coefsV, numV, chanBits, denShiftV)
+                        else
+                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
+                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsV, numV, chanBits, denShiftV)
                         
                     else
                         chanBits = @config.bitDepth
@@ -350,6 +380,8 @@ class ALACDecoder
                         
                     
                     channelIndex += 2
+                    
+                    return [status, output]
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
                     return ALAC.errors.paramError
@@ -363,16 +395,15 @@ class ALACDecoder
                     status = this.fillElement(input, offset)
                     
                 when ID_END
-                    console.log("End of frame")
-                    return status
+                    console.log("End of frame", data.offset)
                     
+                    data.align()
                 else
                     console.log("Error in frame")
                     return ALAC.errors.paramError
                 
-            
-        if channelIndex > channels
-            console.log("Channel Index is higher than the amount of channels")
+            if channelIndex > channels
+                console.log("Channel Index is higher than the amount of channels")
         
         return [status, output]
     
