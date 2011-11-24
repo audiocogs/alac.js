@@ -136,3 +136,35 @@ class Data
                 out[key] = this['read' + types[val]]()
 
         return out
+
+class BitBuffer
+    window.BitBuffer = BitBuffer
+
+    constructor: (@data) ->
+        @pos = 0 # bit position
+        @offset = 0 # byte offset
+        @length = @data.length * 8
+
+    read: (bits) ->
+        b1 = @data[@offset] << 16
+        b2 = @data[@offset + 1] << 8
+        b3 = @data[@offset + 2]
+        a = (b1 | b2 | b3) << @pos
+        a &= 0x00FFFFFF
+
+        @advance(bits)
+        return a >> (24 - bits)
+
+    # Reads up to 8 bits
+    readSmall: (bits) ->
+        b1 = @data[@offset] << 8
+        b2 = @data[@offset + 1]
+        a = (b1 | b2) << @pos
+
+        @advance(bits)
+        return a >> (16 - bits)
+
+    advance: (bits) ->
+        @pos += bits
+        @offset += @pos >> 3
+        @pos &= 7
