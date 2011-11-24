@@ -173,5 +173,4 @@ class BitBuffer
         bit = new BitBuffer(@data)
         bit.pos = @pos
         bit.offset = @offset
-        bit.length = @length
         return bit
