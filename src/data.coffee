@@ -168,3 +168,10 @@ class BitBuffer
         @pos += bits
         @offset += @pos >> 3
         @pos &= 7
+        
+    copy: ->
+        bit = new BitBuffer(@data)
+        bit.pos = @pos
+        bit.offset = @offset
+        bit.length = @length
+        return bit
