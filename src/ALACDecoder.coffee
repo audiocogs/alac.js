@@ -31,41 +31,43 @@ class ALACDecoder
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
-        if CSCompareToString(@cookie, offset + 4, 'frma', 0, 4)
-            offset += 12; remaining -= 12
+        data = new Data(@cookie)
+        atom = data.stringAt(4, 4)
+        
+        if atom is 'frma'
             console.log "Skipping 'frma'"
-        
-        if CSCompareToString(cookie, offset + 4, 'alac', 0, 4)
-            offset += 12; remaining -= 12
+            data.pos += 12
+            
+        else if atom is 'alac'
             console.log "Skipping 'alac'"
-        
-        if remaining < 24
+            data.pos += 12
+            
+        if data.length - data.pos < 24
             console.log "Cookie too short"
             return ALAC.errors.paramError
-        
-        @config = 
-            frameLength:        CSLoadBigUInt32(cookie, offset + 0)
-            compatibleVersion:  CSLoadUInt8(cookie, offset + 4)
-            bitDepth:           CSLoadUInt8(cookie, offset + 5)
-            pb:                 CSLoadUInt8(cookie, offset + 6)
-            mb:                 CSLoadUInt8(cookie, offset + 7)
-            kb:                 CSLoadUInt8(cookie, offset + 8)
-            numChannels:        CSLoadUInt8(cookie, offset + 9)
-            maxRun:             CSLoadBigUInt16(cookie, offset + 10)
-            maxFrameBytes:      CSLoadBigUInt32(cookie, offset + 12)
-            avgBitRage:         CSLoadBigUInt32(cookie, offset + 16)
-            sampleRate:         CSLoadBigUInt32(cookie, offset + 20)
             
-        console.log @config
+        @config = data.struct
+            frameLength: 'uint32'
+            compatibleVersion: 'uint8'
+            bitDepth: 'uint8'
+            pb: 'uint8'
+            mb: 'uint8'
+            kb: 'uint8'
+            numChannels: 'uint8'
+            maxRun: 'uint16'
+            maxFrameBytes: 'uint32'
+            avgBitRate: 'uint32'
+            sampleRate: 'uint32'
+            
+        console.log 'cookie', @config
         
         @mixBufferU = new Int32Array(@config.frameLength)
         @mixBufferV = new Int32Array(@config.frameLength)
         
-        predictorBuffer = CSAlloc(@config.frameLength * 4)
-        
+        predictorBuffer = new ArrayBuffer(@config.frameLength * 4)
         @predictor = new Int32Array(predictorBuffer)
         @shiftBuffer = new Int16Array(predictorBuffer)
-        
+            
         return ALAC.errors.noError
         
     decode: (input, offset, samples, channels) ->
@@ -76,37 +78,37 @@ class ALACDecoder
         @activeElements = 0
         channelIndex = 0
         
+        data = new BitBuffer(input)
+        
         coefsU = new Int16Array(32)
         coefsV = new Int16Array(32)
-                
-        output = CSAlloc(samples * channels * @config.bitDepth / 8)
-        input_a = new Int16Array(input)
+        output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
         
         offset *= 8
         status = ALAC.errors.noError
         
         while status is ALAC.errors.noError
-            tag = CSLoadFewBits(input, offset, 3)
-            offset += 3
+            tag = data.readSmall(3)
             
             switch tag
                 when ID_SCE, ID_LFE
                     console.log("LFE or SCE element")
                     
                     # Mono / LFE channel
-                    elementInstanceTag = CSLoadFewBits(input, offset, 4); offset += 4
+                    elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
                     
                     # read the 12 unused header bits
-                    unused = CSLoadManyBits(input, offset, 12)
+                    #unused = CSLoadManyBits(input, offset, 12)
+                    unused = data.read(12)
                     return ALAC.errors.paramError unless unused is 0
-                    offset += 12
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    headerByte = CSLoadFewBits(input, offset, 4); offset += 4
+                    #headerByte = CSLoadFewBits(input, offset, 4); offset += 4
+                    headerByte = data.read(4)
                     partialFrame = headerByte >> 3
                     bytesShifted = (headerByte >> 1) & 0x3
-                    return ALAC.errors.paramError unless bytesShifted is 3
+                    return ALAC.errors.paramError if bytesShifted is 3
                     
                     shift = bytesShifted * 8
                     escapeFlag = headerByte & 0x1
@@ -114,33 +116,35 @@ class ALACDecoder
                     
                     # check for partial frame to override requested samples
                     if partialFrame isnt 0
-                        samples = CSLoadManyBits(input, offset, 16) << 16; offset += 16
-                        samples |= CSLoadManyBits(input, offset, 16);      offset += 16
+                        samples = data.read(16) << 16
+                        samples |= data.read(16)
                     
                     if escapeFlag is 0
                         # compressed frame, read rest of parameters
-                        mixBits     = CSLoadFewBits(input, offset, 8); offset += 8
-                        mixRes      = CSLoadFewBits(input, offset, 8); offset += 8 # TODO: Should be signed
+                        mixBits     = data.read(8)
+                        mixRes      = data.read(8)
                         
-                        headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
+                        headerByte  = data.read(8)
                         modeU       = headerByte >> 4
                         denShiftU   = headerByte & 0xf
                         
-                        headerByte  = CSLoadFewBits(input, offset, 8); offset += 8
+                        headerByte  = data.read(8)
                         pbFactorU   = headerByte >> 5
                         numU        = headerByte & 0x1f
                         
                         for i in [0...numU]
-                            coefsU[i] = CSLoadManyBits(bits, 16); offset += 16
+                            coefsU[i] = data.read(16)
                         
                         # if shift active, skip the the shift buffer but remember where it starts
                         if bytesShifted isnt 0
-                            offset += shift * samples
+                            # shiftbits = bits?
+                            data.advance(shift * samples)
                         
                         # TODO: Fix dyn_decomp, I am not sure what the api should be
-                        params = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
-                        status = Aglib.dyn_decomp(params, input, offset, @predictor, samples, chanBits)
+                        params = Aglib.ag_params(@config.mb, (@config.pb * pbFactorU) / 4, @config.kb, samples, @config.maxRun)
+                        status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
                         return status unless status is ALAC.errors.noError
+                        return
                         
                         if modeU is 0
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
