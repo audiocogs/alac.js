@@ -336,7 +336,9 @@ class ALACDecoder
                     
                     switch @config.bitDepth
                         when 16
-                            out16 = new Uint16Array(output, samples * channelIndex * @config.bitDepth / 8)
+                            out16 = new Int16Array(output, channelIndex)
+                            
+                            console.log("Channels, Samples, Mix Bits, Mix Res", channels, samples, mixBits, mixRes)
                             
                             Matrixlib.unmix16(@mixBufferU, @mixBufferV, out16, channels, samples, mixBits, mixRes)
                             
