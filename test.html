@@ -18,101 +18,63 @@
         xhr.responseType = "arraybuffer";
         
         xhr.onload = function() {
-            var file = xhr.response;
-            var container = {};
+            var file = new Uint8Array(xhr.response);
+            var data = new Data(file);
             
-            if (CSCompareToString(file, 0, 'caff', 0, 4)) {
-                container.fileVersion = CSLoadBigUInt16(file, 4);
-                container.fileFlags = CSLoadBigUInt16(file, 6);
+            if (data.readString(4) !== 'caff')
+                return console.log("Invalid CAF, does not begin with 'caff'");
                 
-                console.log(container);
-            } else {
-                console.log("Invalid CAF, does not begin with 'caff'");
-                
-                return;
-            }
+            var container = data.struct({
+                fileVersion: 'uint16',
+                fileFlags: 'uint16'
+            });
             
-            var offset = 8, format = {};
+            console.log('container', container);
             
-            if (CSCompareToString(file, offset, 'desc', 0, 4)) {
-                var throwaway = CSLoadBigUInt32(file, offset + 4);
-                var size = CSLoadBigUInt32(file, offset + 8);
+            if (data.readString(4) !== 'desc')
+                return console.log("Invalid CAF, header is not followed by 'desc'");
                 
-                if (throwaway != 0 || size != 32) {
-                    console.log("Invalid 'desc' size, should be 24");
-                    return;
-                }
-                
-                format.sampleRate = CSLoadBigFloat64(file, offset + 12);
-                format.formatID = CSBufferToString(file, offset + 20, 4);
-                format.formatFlags = CSLoadBigUInt16(file, offset + 24);
-                format.bytesPerPacket = CSLoadBigUInt16(file, offset + 28);
-                format.framesPerPacket = CSLoadBigUInt16(file, offset + 32);
-                format.channelsPerFrame = CSLoadBigUInt16(file, offset + 36);
-                format.bitsPerChannel = CSLoadBigUInt16(file, offset + 40);
-                
-                offset += 44;
-                
-                console.log(format);
-            } else {
-                console.log("Invalid CAF, header is not followed by 'desc'");
-                return;
-            }
+            if (data.readUInt64() !== 32)
+                return console.log("Invalid 'desc' size, should be 32");
             
-            if (format.formatID != 'alac') {
-                console.log("CAF does not contain Apple Lossless audio")
-                return;
-            }
+            var format = data.struct({
+                sampleRate: 'double',
+                formatID: 'string[4]',
+                formatFlags: 'uint32',
+                bytesPerPacket: 'uint32',
+                framesPerPacket: 'uint32',
+                channelsPerFrame: 'uint32',
+                bitsPerChannel: 'uint32'
+            });
             
-            var decoder, data;
+            console.log('format', format);
             
-            while (offset < file.byteLength && (decoder == null || data == null)) {
-                var type = CSBufferToString(file, offset, 4);
-                var throwaway = CSLoadBigUInt32(file, offset + 4);
-                var size = CSLoadBigUInt32(file, offset + 8);
-                
-                if (throwaway != 0) {
-                  console.log("Chunk is over 4GB, failing");
-                }
-                
-                offset += 12;
+            if (format.formatID !== 'alac')
+                return console.log("CAF does not contain Apple Lossless audio");
+            
+            while (data.pos < data.length) {
+                var type = data.readString(4);
+                var size = data.readUInt64();
                 
                 switch (type) {
                     case 'kuki':
                         console.log("Found cookie, initializing decoder");
                         
-                        decoder = new ALACDecoder(CSRead(file, offset, size));
-                        
+                        var decoder = new ALACDecoder(data.slice(data.pos, data.pos + size));
                         break;
+                        
                     case 'data':
-                        console.log("Found data")
+                        console.log("Found data");
                         
-                        if (size == -1) {
-                            console.log("Unknown data length")
-                            
-                            size = file.byteLength - offset;
-                        }
+                        var out = decoder.decode(data.slice(data.pos + 4, data.pos + size - 8), 0, 4096, 2);
+                        console.log("output", out);
+                        return;
                         
-                        data = CSRead(file, offset, size);
-                        
-                        break;
                     default:
-                        console.log("Found random type, '" + type + "'")
-                        
-                        break;
-                    
+                        console.log("Found random type, '" + type + "'");
                 }
                 
-                console.log(decoder == null || data == null)
-                
-                offset += size;
-            }
-            
-            if (decoder != null && data != null) {
-                console.log("Trying to decode!")
-                decoder.decode(data, 0, 4096, 2)
-            } else {
-                console.log("Failed to parse .caf")
+                data.pos += size;
             }
         }
         
