@@ -146,27 +146,30 @@ class BitBuffer
         @length = @data.length * 8
 
     read: (bits) ->
-        b1 = @data[@offset] << 16
-        b2 = @data[@offset + 1] << 8
-        b3 = @data[@offset + 2]
-        a = (b1 | b2 | b3) << @pos
-        a &= 0x00FFFFFF
-
+        a = (@data[@offset + 0] << 16) +
+            (@data[@offset + 1] <<  8) +
+            (@data[@offset + 2] <<  0)
+        
+        a = (a << @pos) & 0xFFFFFF
+        
         @advance(bits)
-        return a >> (24 - bits)
+        
+        return (a >>> (24 - bits))
 
     # Reads up to 8 bits
     readSmall: (bits) ->
-        b1 = @data[@offset] << 8
-        b2 = @data[@offset + 1]
-        a = (b1 | b2) << @pos
-
+        a = (@data[@offset + 0] <<  8) +
+            (@data[@offset + 1] <<  0)
+        
+        a = (a << @pos) & 0xFFFF
+        
         @advance(bits)
-        return a >> (16 - bits)
+        
+        return (a >>> (16 - bits))
 
     advance: (bits) ->
         @pos += bits
-        @offset += @pos >> 3
+        @offset += (@pos >>> 3)
         @pos &= 7
         
     copy: ->

@@ -159,7 +159,7 @@ class ALACDecoder
                         shift = 32 - chanBits
                         
                         if chanBits <= 16
-                            for i in [0...samples]
+                            for i in [0 ... samples]
                                 val = CSLoadManyBits(input, offset, chanBits); offset += chanBits
                                 val = (val << shift) >> shift
                                 @mixBufferU[i] = val
@@ -200,6 +200,154 @@ class ALACDecoder
                 when ID_CPE
                     console.log("CPE element")
                     
+                    if (channelIndex + 2) > channels
+                        # TODO: GOTO NOMOARCHANNELS
+                        console.log("No more channels, please")
+                    
+                    elementInstanceTag = data.readSmall(4)
+                    
+                    console.log("Element Instance Tag", elementInstanceTag) # DEBUG
+                    
+                    @activeElements |= (1 << elementInstanceTag)
+                    
+                    unusedHeader = data.read(12)
+                    
+                    unless unusedHeader == 0
+                        console.log("Error! Unused header is silly")
+                        
+                        return ALAC.errors.paramError
+                    
+                    headerByte = data.read(4)
+                    
+                    console.log("Header Byte", headerByte) # DEBUG
+                    
+                    partialFrame = headerByte >>> 3
+                    
+                    bytesShifted = (headerByte >>> 1) & 0x03
+                    
+                    console.log("Partial Frame, Bytes Shifted", partialFrame, bytesShifted) # DEBUG
+                    
+                    if bytesShifted == 3
+                        console.log("Moooom, the reference said that bytes shifted couldn't be 3!")
+                        
+                        return ALAC.errors.paramError
+                    
+                    escapeFlag = headerByte & 0x01
+                    
+                    console.log("Escape Flag", escapeFlag) # DEBUG
+                    
+                    chanBits = @config.bitDepth - (bytesShifted * 8) + 1
+                    
+                    console.log("Channel Bits", chanBits) # DEBUG
+                    
+                    if partialFrame != 0
+                        samples = data.read(16) << 16 + data.read(16)
+                    
+                    console.log("Samples", samples) # DEBUG
+                    
+                    if escapeFlag == 0
+                        mixBits = data.read(8)
+                        mixRes = data.read(8)
+                        
+                        headerByte = data.read(8)
+                        modeU = headerByte >>> 4
+                        denShiftU = headerByte & 0x0F
+                        
+                        headerByte = data.read(8)
+                        pbFactorU = headerByte >>> 5
+                        numU = headerByte & 0x1F
+                        
+                        for i in [0 ... numU] by 1
+                            coefsU[i] = data.read(16)
+                        
+                        headerByte = data.read(8)
+                        modeV = headerByte >>> 4
+                        denShiftV = headerByte & 0x0F
+                        
+                        headerByte = data.read(8)
+                        pbFactorV = headerByte >>> 5
+                        numV = headerByte & 0x1F;
+                        
+                        for i in [0 ... numV] by 1
+                            coefsV = data.read(16)
+                        
+                        if bytesShifted != 0
+                            shiftbits = data.copy()
+                            
+                            bits.advance((bytesShifted * 8) * samples)
+                        
+                        agParams = Aglib.ag_params(@config.mb, pb * pbFactorU / 4, @config.kb, samples, samples, @config.maxRun)
+                        status = Aglib.dyn_decomp(agParams, bits, @predictor, samples, chanBits, data) # data might be wrong.
+                        
+                        if status != ALAC.errors.noError
+                            console.log("Mom also said there should be no error")
+                            
+                            return status
+                        
+                        if modeU == 0
+                            Dplib.unpc_block(@predictor, @predictor, samples, coefsU, numU, chanBits, denShiftU)
+                        else
+                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
+                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
+                        
+                    else
+                        chanBits = @config.bitDepth
+                        shift = 32 - chanBits
+                        
+                        if (chanBits <= 16)
+                            for i in [0 ... samples] by 1
+                                val = (data.read(chanBits) << shift) >> shift
+                                
+                                @mixBufferU[i] = val
+                                
+                                val = (data.read(chanBits) << shift) >> shift
+                                
+                                @mixBufferV[i] = val
+                            
+                        else
+                            extraBits = chanBits - 16
+                            for i in [0 ... samples] by 1
+                                val = (data.read(16) << 16) >> shift
+                                val += data.read(extraBits)
+                                
+                                @mixBufferU[i] = val
+                                
+                                val = (data.read(16) << 16) >> shift
+                                val += data.read(extraBits)
+                                
+                                @mixBufferV[i] = val
+                            
+                        
+                        console.log("Mix Buffer U, V", @mixBufferU, @mixBufferV) # DEBUG
+                        
+                        mixBits = mixRes = 0
+                        bits1 = chanBits * samples
+                        bytesShifted = 0
+                    
+                    console.log("Bytes Shifted", bytesShifted) # DEBUG
+                    
+                    if bytesShifted != 0
+                        shift = bytesShifted * 8
+                        
+                        for i in [0 ... samples * 2] by 2
+                            @shiftBuffer[i + 0] = shiftbits.read(shift)
+                            @shiftBuffer[i + 1] = shiftbits.read(shift)
+                        
+                    
+                    switch @config.bitDepth
+                        when 16
+                            out16 = new Uint16Array(output, samples * channelIndex * @config.bitDepth / 8)
+                            
+                            Matrixlib.unmix16(@mixBufferU, @mixBufferV, out16, channels, samples, mixBits, mixRes)
+                            
+                            console.log("Output", out16)
+                        else
+                            console.log("Evil bit depth")
+                            
+                            return -1231
+                        
+                    
+                    channelIndex += 2
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
                     return ALAC.errors.paramError

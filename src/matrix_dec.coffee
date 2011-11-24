@@ -21,22 +21,21 @@
 
 class Matrixlib
     @unmix16 = (u, v, out, stride, samples, mixbits, mixres) ->
-        out_a = new Int16Array(out)
         u_a = new Int16Array(u)
         v_a = new Int16Array(v)
         
         # Conventional separated stereo
         if mixres is 0
             for i in [0...samples]
-                op[i * stride + 0] = u[i]
-                op[i * stride + 1] = v[i]
+                out[i * stride + 0] = u[i]
+                out[i * stride + 1] = v[i]
         
         # Matrixed stereo
         else
             for i in [0 ... samples] by 1
                 l = u[i] + v[i] - ((mixres * v[i]) >> mixbits)
-                op[i * stride + 0] = l
-                op[i * stride + 1] = l - v[i]
+                out[i * stride + 0] = l
+                out[i * stride + 1] = l - v[i]
                 
     # unmix20
     # unmix24
