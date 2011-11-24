@@ -26,33 +26,43 @@ class Aglib
     MAX_RUN_DEFAULT = 255
     MAX_PREFIX_16 = 9
     MAX_PREFIX_32 = 9
+    QBSHIFT = 9
+    QB = 1 << QBSHIFT
+    MMULSHIFT = 2
+    MDENSHIFT = QBSHIFT - MMULSHIFT - 1
+    MOFF = 1 << (MDENSHIFT-2)
+    N_MAX_MEAN_CLAMP = 0xffff
+    N_MEAN_CLAMP_VAL = 0xffff
+    MMULSHIFT = 2
+    BITOFF = 24
+    MAX_DATATYPE_BITS_16 = 16
 
     lead = (m) ->
         c = 1 << 31
     
         for i in [0...32]
-            return i if c & m isnt 0
-            c = c >> 1
+            break if (c & m) isnt 0
+            c >>= 1
     
-        return 32
+        return i
         
     lg3a = (x) ->
         31 - lead(x + 3)
 
-    read = (buffer, offset) ->
-        (buffer[0] << 24 >>> 0) + ((buf[1] << 16) | (buf[2] << 8) | buf[3])
+    read = (buf, offset) ->
+        (buf[offset++] << 24) | (buf[offset++] << 16) | (buf[offset++] << 8) | buf[offset++]
 
     get_next = (input, suff) ->
-        input >> (32 - suff)
+        input >>> (32 - suff)
 
-    get_stream_bits = (input, offset, bits) ->
+    get_stream_bits = (data, offset, bits) ->
+        input = data.data
         byteoffset = offset / 8
-        input_a = new Uint8Array(input)
-        load1 = read(input, byteoffset)
+        load1 = read(input, data.offset + byteoffset)
     
         if (bits + (offset & 0x7)) > 32
-            result = load1 << (bitoffset & 0x7)
-            load2 = input_a[byteoffset + 4]
+            result = load1 << (offset & 0x7)
+            load2 = input[byteoffset + 4]
             load2shift = (8 - (bits + (offset & 0x7) - 32))
         
             load2 >>= load2shift
@@ -60,71 +70,65 @@ class Aglib
             result |= load2
             
         else
-            result = load1 >> (32 - numbits - (bitoffset & 7))
-    
+            result = load1 >> (32 - bits - (offset & 7))
+        
         return result
 
-    dyn_get_16 = (input, pos, m, k) ->
-        input_a = new Uint8Array(input)
-
-        tempbits = new Uint32Array(input)[pos]
-        stream = read(input, tempbits >> 3) << (tempbits & 7)
+    dyn_get_16 = (data, pos, m, k) ->
+        input = data.data
+        stream = read(input, data.offset + (pos >> 3)) 
+        stream <<= (pos & 7)
+        
         pre = lead(~stream)
 
         if pre >= MAX_PREFIX_16
             pre = MAX_PREFIX_16
-            tempbits += pre
+            pos += pre
             
             stream <<= pre
             result = get_next(stream, MAX_DATATYPE_BITS_16)
 
-            tempbits += MAX_DATATYPE_BITS_16
+            pos += MAX_DATATYPE_BITS_16
             
         else
-            tempbits += pre + 1
+            pos += pre + 1
 
             stream <<= pre + 1
             v = get_next(stream, k)
 
-            tempbits += k
+            pos += k
             result = pre * m + v - 1
 
             if v < 2
                 result -= (v - 1)
-                tempbits -= 1
-
+                pos -= 1
 
         return [result, pos]
 
-    dyn_get_32 = (input, pos, m, k, maxbits) ->
-        input_a = Uint8Array(input)
-
-        tempbits = new Uint32Array(input)[pos]
-        stream = read(input, tempbits >> 3)
-        stream = stream << (tempbits & 0x7)
+    dyn_get_32 = (data, pos, m, k, maxbits) ->
+        input = data.data
+        stream = read(input, data.offset + pos >> 3)
+        stream <<= (pos & 7)
 
         result = lead(~stream)
-
         if result >= MAX_PREFIX_32
-            result = get_stream_bits(input, tempbits + MAX_PREFIX_32, maxbits)
-            tempbits += MAX_PREFIX_32 + maxbits
+            result = get_stream_bits(data, pos + MAX_PREFIX_32, maxbits)
+            pos += MAX_PREFIX_32 + maxbits
             
         else
-            tempbits += result + 1
+            pos += result + 1
 
             if k isnt 1
                 stream <<= result + 1
                 v = get_next(stream, k)
 
-                tempbits += k - 1
+                pos += k - 1
                 result = result * m
 
                 if v >= 2
                     result += v - 1
-                    tempbits += 1
-
-
-
+                    pos += 1
+        
         return [result, pos]
         
     @standard_ag_params: (fullwidth, sectorwidth) ->
@@ -141,30 +145,35 @@ class Aglib
         sw:  s
         maxrun: maxrun
         
-    @dyn_decomp: (params, input, offset, pc, samples, size) ->
+    @dyn_decomp: (params, input, pc, samples, maxSize) ->
         {pb, kb, wb, mb0: mb} = params
         
-        {cur:input, bitIndex:bitPos, byteSize:maxPos} = bitstream
-        maxPos *= 8
+        {data, pos:bitPos, length:maxPos} = input
+        startPos = bitPos
         
         zmode = c = status = outPtr = 0
         out = new Uint32Array(pc)
         
+        console.log 'max', maxSize
+        
         while c < samples
             # bail if we've run off the end of the buffer
             unless bitPos < maxPos
-                return ALAC.error.paramError
+                return ALAC.errors.paramError
             
             m = mb >> QBSHIFT
             k = lg3a(m)
             
             k = Math.min(k, kb)
             m = (1 << k) - 1
+            
+            #console.log 'kkk', m, k
+            
             [n, bitPos] = dyn_get_32(input, bitPos, m, k, maxSize)
             
             # least significant bit is sign bit
             ndecode = n + zmode
-            multiplier = -(ndecode & 1) | 1
+            multiplier = (-(ndecode & 1)) | 1
             del = ((ndecode + 1) >> 1) * multiplier
             
             out[outPtr++] = del
@@ -175,7 +184,7 @@ class Aglib
             # update mean tracking
             if n > N_MAX_MEAN_CLAMP
                 mb = N_MEAN_CLAMP_VAL
-                
+            
             zmode = 0
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
@@ -185,21 +194,22 @@ class Aglib
                 
                 [n, bitPos] = dyn_get_16(input, bitPos, mz, k)
                 
-                unless c + 1 <= samples
-                    return ALAC.error.paramError
+                unless c + n <= samples
+                    status = ALAC.error.paramError
+                    break
                     
                 for j in [0...n]
                     out[outPtr++] = 0
                     c++
                     
-                zmode = 0 if z >= 65535
+                console.log c
                     
+                zmode = 0 if n >= 65535
                 mb = 0
             
         
-        bitstream.bitIndex = bitPos
-        bitstream.cur += bitPos >> 3
-        butstream.bitIndex &= 7
-                
+        input.advance(bitPos - startPos)
+          
+        console.log 'length', bitPos, startPos, bitPos - startPos     
         return status
     
