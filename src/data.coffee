@@ -180,11 +180,21 @@ class BitBuffer
         @advance(bits)
         
         return (a >>> (16 - bits))
-
+    
+    peekBig: (bits) ->
+        v = this.readBig(bits)
+        
+        this.rewind(bits)
+        
+        return v
+    
     advance: (bits) ->
         @pos += bits
-        @offset += (@pos >>> 3)
+        @offset += (@pos >> 3)
         @pos &= 7
+    
+    rewind: (bits) ->
+        this.advance(-bits)
     
     align: () ->
         if @pos != 0

@@ -40,11 +40,13 @@ class Aglib
     lead = (m) ->
         c = 1 << 31
     
-        for i in [0...32]
-            break if (c & m) isnt 0
-            c >>= 1
+        for i in [0 ... 32] by 1
+            if (c & m) != 0
+                return i
+            
+            c = c >>> 1
     
-        return i
+        return 32
         
     lg3a = (x) ->
         31 - lead(x + 3)
@@ -84,16 +86,20 @@ class Aglib
         return [result, pos]
 
     dyn_get_32 = (data, m, k, maxbits) ->
-        stream = data.readBig(maxbits)
-
-        result = lead(~stream)
+        stream = data.peekBig(32)
         
-        if result >= MAX_PREFIX_32
-            result = data.read(maxbits)
-            
+        console.log("\tStream", stream)
+        
+        bitsInPrefix = lead(~stream)
+        
+        console.log("\tLeading", bitsInPrefix)
+        
+        if bitsInPrefix >= MAX_PREFIX_32
+            data.advance(MAX_PREFIX_32)
+            return data.read(maxbits)
         else
-            if k isnt 1
-                stream <<= result + 1
+            if k != 1
+                stream = stream << (result + 1)
                 v = get_next(stream, k)
 
                 pos += k - 1
@@ -103,7 +109,7 @@ class Aglib
                     result += v - 1
                     pos += 1
         
-        return [result, pos]
+        return result
         
     @standard_ag_params: (fullwidth, sectorwidth) ->
         @ag_params(MB0, PB0, KB0, fullwidth, sectorwidth, MAX_RUN_DEFAULT)
@@ -141,17 +147,24 @@ class Aglib
             k = Math.min(k, kb)
             m = (1 << k) - 1
             
+            console.log("\tPre Pos", data.offset * 8 + data.pos - (start.offset * 8 + start.pos))
+            
             n = dyn_get_32(data, m, k, maxSize)
+            
+            console.log("\tPost Pos", data.offset * 8 + data.pos - (start.offset * 8 + start.pos))
+            
+            console.log("\tn", n)
             
             # least significant bit is sign bit
             ndecode = n + zmode
-            multiplier = (-(ndecode & 1)) | 1
-            del = ((ndecode + 1) >> 1) * multiplier
+            multiplier = -(ndecode & 1)
+            del = ((ndecode + 1) >>> 1) * multiplier
             
-            out[outPtr++] = del
+            console.log("\tndecode, multiplier, del", ndecode, multiplier, del)
+            
             c++
             
-            mb = pb * (n + zmode) + mb - ((pb * mb) >> QBSHIFT)
+            mb = pb * (n + zmode) + mb - ((pb * mb) >>> QBSHIFT)
             
             # update mean tracking
             if n > N_MAX_MEAN_CLAMP
@@ -179,12 +192,9 @@ class Aglib
                 zmode = 0 if n >= 65535
                 mb = 0
             
-        
-        input.advance(bitPos - startPos)
-          
-        console.log 'length', bitPos, startPos, bitPos - startPos
-        
-        debug()
+            console.log("\tmb", mb)
+            
+            debug()
         
         return status
     
