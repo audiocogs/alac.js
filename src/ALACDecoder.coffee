@@ -335,15 +335,12 @@ class ALACDecoder
                                 @mixBufferV[i] = val
                             
                         else
-                            extraBits = chanBits - 16
                             for i in [0 ... samples] by 1
-                                val = (data.read(16) << 16) >> shift
-                                val += data.read(extraBits)
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 
                                 @mixBufferU[i] = val
                                 
-                                val = (data.read(16) << 16) >> shift
-                                val += data.read(extraBits)
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 
                                 @mixBufferV[i] = val
                             

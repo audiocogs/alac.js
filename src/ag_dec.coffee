@@ -105,9 +105,8 @@ class Aglib
 
         return [result, pos]
 
-    dyn_get_32 = (data, pos, m, k, maxbits) ->
-        input = data.data
-        stream = read(input, data.offset + pos >> 3)
+    dyn_get_32 = (data, m, k, maxbits) ->
+        stream = data.readBig(maxbits)
         stream <<= (pos & 7)
 
         result = lead(~stream)
@@ -158,20 +157,16 @@ class Aglib
         
         status = ALAC.errors.noError
         
-        # out = new Uint32Array(pc)
-        
         while c < samples
-            # bail if we've run off the end of the buffer
-            unless bitPos < maxPos
-                return [ALAC.errors.paramError]
-            
             m = mb >>> QBSHIFT
             k = lg3a(m)
+            
+            console.log("\tm, k, maxSize", m, k, maxSize)
             
             k = Math.min(k, kb)
             m = (1 << k) - 1
             
-            [n, bitPos] = dyn_get_32(data, bitPos, m, k, maxSize)
+            n = dyn_get_32(data, m, k, maxSize)
             
             # least significant bit is sign bit
             ndecode = n + zmode
@@ -212,6 +207,9 @@ class Aglib
         
         input.advance(bitPos - startPos)
           
-        console.log 'length', bitPos, startPos, bitPos - startPos     
+        console.log 'length', bitPos, startPos, bitPos - startPos
+        
+        debug()
+        
         return status
     

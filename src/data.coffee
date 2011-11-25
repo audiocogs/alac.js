@@ -145,6 +145,20 @@ class BitBuffer
         @offset = 0 # byte offset
         @length = @data.length * 8
 
+    readBig: (bits) ->
+        a = (@data[@offset + 0] * Math.pow(2, 32)) +
+            (@data[@offset + 1] * Math.pow(2, 24)) +
+            (@data[@offset + 2] * Math.pow(2, 16)) +
+            (@data[@offset + 3] * Math.pow(2, 8)) +
+            (@data[@offset + 4] * Math.pow(2, 0))
+        
+        a = (a % Math.pow(2, 40 - @pos))
+        a = (a / Math.pow(2, 40 - @pos - bits))
+        
+        @advance(bits)
+        
+        return a << 0
+    
     read: (bits) ->
         a = (@data[@offset + 0] << 16) +
             (@data[@offset + 1] <<  8) +
