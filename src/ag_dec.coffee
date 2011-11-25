@@ -1,7 +1,7 @@
 #
 #  Original C(++) version by Apple, http://alac.macosforge.org/
 #
-#  Javascript port by Jens Nockert and Devon Govett of OFMLabs, https://github.com/ofmlabs/alac
+#  Javascript port by Jens Nockert and Devon Govett of OFMLabs, https://github.com/ofmlabs/alac.js
 # 
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -49,30 +49,8 @@ class Aglib
     lg3a = (x) ->
         31 - lead(x + 3)
 
-    read = (buf, offset) ->
-        (buf[offset++] << 24) | (buf[offset++] << 16) | (buf[offset++] << 8) | buf[offset++]
-
     get_next = (input, suff) ->
         input >>> (32 - suff)
-
-    get_stream_bits = (data, offset, bits) ->
-        input = data.data
-        byteoffset = offset / 8
-        load1 = read(input, data.offset + byteoffset)
-    
-        if (bits + (offset & 0x7)) > 32
-            result = load1 << (offset & 0x7)
-            load2 = input[byteoffset + 4]
-            load2shift = (8 - (bits + (offset & 0x7) - 32))
-        
-            load2 >>= load2shift
-            result >>= (32 - bits)
-            result |= load2
-            
-        else
-            result = load1 >> (32 - bits - (offset & 7))
-        
-        return result
 
     dyn_get_16 = (data, pos, m, k) ->
         input = data.data
@@ -107,16 +85,13 @@ class Aglib
 
     dyn_get_32 = (data, m, k, maxbits) ->
         stream = data.readBig(maxbits)
-        stream <<= (pos & 7)
 
         result = lead(~stream)
+        
         if result >= MAX_PREFIX_32
-            result = get_stream_bits(data, pos + MAX_PREFIX_32, maxbits)
-            pos += MAX_PREFIX_32 + maxbits
+            result = data.read(maxbits)
             
         else
-            pos += result + 1
-
             if k isnt 1
                 stream <<= result + 1
                 v = get_next(stream, k)
@@ -161,7 +136,7 @@ class Aglib
             m = mb >>> QBSHIFT
             k = lg3a(m)
             
-            console.log("\tm, k, maxSize", m, k, maxSize)
+            console.log("\tm, k", m, k)
             
             k = Math.min(k, kb)
             m = (1 << k) - 1
