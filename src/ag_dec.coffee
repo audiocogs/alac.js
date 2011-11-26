@@ -39,7 +39,7 @@ class Aglib
 
     lead = (m) ->
         c = 1 << 31
-    
+                
         for i in [0 ... 32] by 1
             if (c & m) != 0
                 return i
@@ -55,6 +55,7 @@ class Aglib
         input >>> (32 - suff)
 
     dyn_get_16 = (data, pos, m, k) ->
+        debug()
         input = data.data
         stream = read(input, data.offset + (pos >> 3)) 
         stream <<= (pos & 7)
@@ -92,8 +93,8 @@ class Aglib
         
         if bitsInPrefix >= MAX_PREFIX_32
             data.advance(MAX_PREFIX_32)
-            
             return data.readBig(maxbits)
+            
         else
             data.advance(bitsInPrefix + 1)
         
@@ -152,9 +153,7 @@ class Aglib
             # least significant bit is sign bit
             ndecode = n + zmode
             multiplier = -(ndecode & 1) | 1
-            pc[c] = ((ndecode + 1) >>> 1) * multiplier
-            
-            c++
+            pc[c++] = ((ndecode + 1) >>> 1) * multiplier
             
             mb = pb * (n + zmode) + mb - ((pb * mb) >>> QBSHIFT)
             

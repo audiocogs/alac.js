@@ -156,7 +156,6 @@ class BitBuffer
         a = (a / Math.pow(2, 40 - @pos - bits))
         
         @advance(bits)
-        
         return a << 0
     
     read: (bits) ->
@@ -167,7 +166,6 @@ class BitBuffer
         a = (a << @pos) & 0xFFFFFF
         
         @advance(bits)
-        
         return (a >>> (24 - bits))
 
     # Reads up to 8 bits
@@ -178,14 +176,11 @@ class BitBuffer
         a = (a << @pos) & 0xFFFF
         
         @advance(bits)
-        
         return (a >>> (16 - bits))
     
     peekBig: (bits) ->
-        v = this.readBig(bits)
-        
-        this.rewind(bits)
-        
+        v = @readBig(bits)
+        @rewind(bits)
         return v
     
     advance: (bits) ->
@@ -197,9 +192,7 @@ class BitBuffer
         this.advance(-bits)
     
     align: () ->
-        if @pos != 0
-            this.advance(8 - @pos)
-        
+        @advance(8 - @pos) if @pos != 0
     
     copy: ->
         bit = new BitBuffer(@data)

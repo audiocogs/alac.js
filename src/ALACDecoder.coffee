@@ -287,8 +287,7 @@ class ALACDecoder
                         
                         if bytesShifted != 0
                             shiftbits = data.copy()
-                            
-                            bits.advance((bytesShifted * 8) * samples)
+                            bits.advance((bytesShifted * 8) * 2 * samples)
                         
                         console.log("Bytes Shifted", bytesShifted)
                         
@@ -307,6 +306,7 @@ class ALACDecoder
                         if modeU == 0
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         else
+                            # the special "numActive == 31" mode can be done in-place
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         
