@@ -293,10 +293,10 @@ class ALACDecoder
                         console.log("Bytes Shifted", bytesShifted)
                         
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
-                        [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
+                        status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
-                            console.log("Mom also said there should be no error")
+                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)…")
                             
                             return status
                         
@@ -310,7 +310,7 @@ class ALACDecoder
                         [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
-                            console.log("Mom also said there should be no error")
+                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)…")
                             
                             return status
                         

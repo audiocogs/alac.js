@@ -88,11 +88,7 @@ class Aglib
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.pos;  stream = data.peekBig(32 - offs) << offs
         
-        console.log("\tStream", Math.abs(stream).toString(16), if Math.abs(stream) == stream then "Pos" else "Neg")
-        
         bitsInPrefix = lead(~stream)
-        
-        console.log("\tLeading", bitsInPrefix)
         
         if bitsInPrefix >= MAX_PREFIX_32
             data.advance(MAX_PREFIX_32)
@@ -103,14 +99,9 @@ class Aglib
         
             if k != 1
                 stream = stream << (bitsInPrefix + 1)
-                
-                console.log("\t\tStream", stream)
-                
                 result = bitsInPrefix * m
                 
                 v = (stream >>> (32 - k))
-                
-                console.log("\t\tv", v)
                 
                 data.advance(k - 1)
                 
@@ -153,37 +144,28 @@ class Aglib
             m = mb >>> QBSHIFT
             k = lg3a(m)
             
-            console.log("\tm, k", m, k)
-            
             k = Math.min(k, kb)
             m = (1 << k) - 1
             
-            console.log("\tPre Pos", data.offset * 8 + data.pos - (start.offset * 8 + start.pos))
-            
             n = dyn_get_32(data, m, k, maxSize)
-            
-            console.log("\tPost Pos", data.offset * 8 + data.pos - (start.offset * 8 + start.pos))
-            
-            console.log("\tn", n)
             
             # least significant bit is sign bit
             ndecode = n + zmode
             multiplier = -(ndecode & 1)
-            del = ((ndecode + 1) >>> 1) * multiplier
-            
-            console.log("\tndecode, multiplier, del", ndecode, multiplier, del)
+            pc[c] = ((ndecode + 1) >>> 1) * multiplier
             
             c++
             
             mb = pb * (n + zmode) + mb - ((pb * mb) >>> QBSHIFT)
             
             # update mean tracking
-            if n > N_MAX_MEAN_CLAMP
-                mb = N_MEAN_CLAMP_VAL
+            mb = N_MEAN_CLAMP_VAL if n > N_MAX_MEAN_CLAMP
             
             zmode = 0
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
+                console.log("Not debugged recursive yet")
+                
                 zmode = 1
                 k = lead(mb) - BITOFF + ((mb + MOFF) >>> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
@@ -203,7 +185,6 @@ class Aglib
                 zmode = 0 if n >= 65535
                 mb = 0
             
-            console.log("\tmb", mb, "\n")
         
         return status
     
