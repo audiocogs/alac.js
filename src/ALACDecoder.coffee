@@ -292,6 +292,8 @@ class ALACDecoder
                         
                         console.log("Bytes Shifted", bytesShifted)
                         
+                        console.log("AG: Left")
+                        
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
@@ -303,26 +305,28 @@ class ALACDecoder
                         console.log("Mode U", modeU)
                         
                         if modeU == 0
-                            Dplib.unpc_block(@predictor, @predictor, samples, coefsU, numU, chanBits, denShiftU)
+                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         else
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         
-                        debug()
+                        console.log("AG: Right")
                         
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorV) / 4, @config.kb, samples, samples, @config.maxRun)
-                        [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
+                        status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
                             console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)…")
                             
                             return status
                         
-                        if modeU == 0
-                            Dplib.unpc_block(@predictor, @predictor, samples, coefsV, numV, chanBits, denShiftV)
+                        console.log("Mode V", modeV)
+                        
+                        if modeV == 0
+                            Dplib.unpc_block(@predictor, @mixBufferV, samples, coefsV, numV, chanBits, denShiftV)
                         else
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
-                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsV, numV, chanBits, denShiftV)
+                            Dplib.unpc_block(@predictor, @mixBufferV, samples, coefsV, numV, chanBits, denShiftV)
                         
                     else
                         chanBits = @config.bitDepth

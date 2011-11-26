@@ -165,6 +165,7 @@ class Aglib
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
                 console.log("Not debugged recursive yet")
+                debug()
                 
                 zmode = 1
                 k = lead(mb) - BITOFF + ((mb + MOFF) >>> MDENSHIFT)

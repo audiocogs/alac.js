@@ -32,18 +32,15 @@ class Dplib
         
         out[0] = pc1[0];
         
-        console.log("Chanshift, Denhalf, Active", chanshift, denhalf, active)
-        console.log("PC1", pc1)
-        
-        debug()
+        console.log("\tChanshift, Denhalf, Active", chanshift, denhalf, active)
+        console.log("\tPC1", pc1)
         
         # just copy if active == 0
-        if active is 0
-            copy(out, 0, pc1, 0, num * 4)
-            return
+        return copy(out, 0, pc1, 0, num * 4) if active == 0
         
         # short-circuit if numactive is 31    
-        else if active is 31
+        if active == 31
+            debug()
             prev = out_a[0]
             
             for i in [1...num]
@@ -53,9 +50,9 @@ class Dplib
             
             return
         
-        for i in [1...active]
-            del = pc1_a[i] + out_a[i - 1]
-            out_a[i] = (del << chanshift) >> chanshift
+        for i in [1 .. active] by 1
+            del = pc1[i] + out[i - 1]
+            out[i] = (del << chanshift) >> chanshift
         
         lim = active + 1
         
@@ -63,25 +60,24 @@ class Dplib
         # if active == 8 # Optimization for active == 8
         # else           # General case
         
-        for i in [lim...num]
-            sum1 = 0
-            top = out_a[i - lim]
+        for i in [lim ... num] by 1
+            sum1 = 0; top = out[i - lim]; offset = i - 1
             
-            for j in [0...active]
-                sum1 += coefs_a[j] * (out_a[i - j - 1] - top)
-                
+            sum1 += coefs[j] * (out[offset - j] - top) for j in [0 ... active] by 1
+            
             del = del0 = pc1[i]
             sg  = del / Math.abs(del)
             
             del += top + ((sum1 + denhalf) >> denshift)
-            out_a[i] = (del << chanshift) >> chanshift
+            out[i] = (del << chanshift) >> chanshift
             
-            for j in [active-1..0] by -1 # Modified from Apple ALAC to remove the two loops
-                dd = top - out_a[i - j - 1]
-                coefs_a[j] -= sg * dd / Math.abs(dd)
-                del0 -= (active - k) * (Math.abs(dd) >> denshift)
+            for j in [active - 1 .. 0] by -1 # Modified from Apple ALAC to remove the two loops
+                dd = top - out[offset - j]
+                coefs[j] -= sg * dd / Math.abs(dd)
+                del0 -= (active - j) * (Math.abs(dd) >> denshift)
                 
                 break if sg * del0 <= 0
-                
-        return # otherwise CoffeeScript will try to return an array
+            
+        
+        console.log("\tOutput", out)
     

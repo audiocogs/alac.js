@@ -7,6 +7,8 @@
     <p>Open your favorite JS console! :)</p>
     <p>Make sure you run build.sh after every change.</p>
     <script src="lib/alac.js"></script>
+    <script src="sink.js"></script>
+    
     <script src="vendor/core.js/js/core.js"></script>
     <script>
         // Load the CAF file
@@ -70,16 +72,50 @@
                         
                         bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
                         
+                        var outputs = [], times = 0;
+                        
                         while (status == 0) {
+                          console.log("Packet", times);
+                          
                           var out = decoder.decode(bitbuffer, 0, 4096, 2);
+                          
+                          if (out[1]) {
+                            var array = new Int16Array(out[1])
+                            
+                            outputs.push(array);
+                            
+                            console.log("----- (", array.length.toString(), ") -----");
+                          }
                           
                           status = out[0]
                         }
                         
-                        return;
+                        eod = new Float32Array(outputs.length * outputs[0].length);
                         
+                        for (var i = 0; i < outputs.length; i++) {
+                          for (var j = 0; j < outputs[0].length; j++) {
+                            eod[i * outputs[0].length + j] = outputs[i][j] / Math.pow(2, 15);
+                          }
+                        }
+                        
+                        var kthxbai = 0;
+                        
+                        var sink = Sink(function(buffer, channelCount){
+                          for (var i = 0; i < buffer.length; i++){
+                            buffer[i] = eod[kthxbai + i];
+                          }
+                          
+                          kthxbai += buffer.length;
+                          
+                          if (kthxbai > eod.length) {
+                            debugger;
+                          }
+                        }, 2, null, 44100);
+                        
+                        break;
                     default:
                         console.log("Found random type, '" + type + "'");
+                        break;
                 }
                 
                 data.pos += size;
