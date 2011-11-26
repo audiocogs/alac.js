@@ -151,7 +151,7 @@ class Aglib
             
             # least significant bit is sign bit
             ndecode = n + zmode
-            multiplier = -(ndecode & 1)
+            multiplier = -(ndecode & 1) | 1
             pc[c] = ((ndecode + 1) >>> 1) * multiplier
             
             c++

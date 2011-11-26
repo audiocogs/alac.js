@@ -300,11 +300,15 @@ class ALACDecoder
                             
                             return status
                         
+                        console.log("Mode U", modeU)
+                        
                         if modeU == 0
                             Dplib.unpc_block(@predictor, @predictor, samples, coefsU, numU, chanBits, denShiftU)
                         else
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
+                        
+                        debug()
                         
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorV) / 4, @config.kb, samples, samples, @config.maxRun)
                         [status, output] = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)

@@ -30,11 +30,12 @@ class Dplib
         chanshift = 32 - chanbits
         denhalf = 1 << (denshift - 1)
         
-        pc1_a = new Int32Array(pcl)
-        out_a = new Int32Array(out)
-        coefs_a = new Int32Array(coefs)
-        
         out[0] = pc1[0];
+        
+        console.log("Chanshift, Denhalf, Active", chanshift, denhalf, active)
+        console.log("PC1", pc1)
+        
+        debug()
         
         # just copy if active == 0
         if active is 0
