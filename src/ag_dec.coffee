@@ -204,8 +204,6 @@ class Aglib
                 mb = 0
             
             console.log("\tmb", mb, "\n")
-            
-            debug() if c == 5
         
         return status
     
