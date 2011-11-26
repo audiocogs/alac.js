@@ -71,12 +71,12 @@ class Dplib
             del += top + ((sum1 + denhalf) >> denshift)
             out[i] = (del << chanshift) >> chanshift
             
-            for j in [active - 1 .. 0] by -1 # Modified from Apple ALAC to remove the two loops
+            for j in [active - 1 .. 0] # Modified from Apple ALAC to remove the two loops
                 dd = top - out[offset - j]
-                coefs[j] -= sg * dd / Math.abs(dd)
-                del0 -= (active - j) * (Math.abs(dd) >> denshift)
+                coefs[j] += sg * dd / Math.abs(dd)
+                del0 += sg * (active - j) * (Math.abs(dd) >> denshift)
                 
-                break if sg * del0 <= 0
+                break if sg * del0 >= 0
             
         
         console.log("\tOutput", out)
