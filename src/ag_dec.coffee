@@ -86,9 +86,9 @@ class Aglib
         return [result, pos]
 
     dyn_get_32 = (data, m, k, maxbits) ->
-        stream = data.peekBig(32)
+        offs = data.pos;  stream = data.peekBig(32 - offs) << offs
         
-        console.log("\tStream", stream)
+        console.log("\tStream", Math.abs(stream).toString(16), if Math.abs(stream) == stream then "Pos" else "Neg")
         
         bitsInPrefix = lead(~stream)
         
@@ -96,18 +96,29 @@ class Aglib
         
         if bitsInPrefix >= MAX_PREFIX_32
             data.advance(MAX_PREFIX_32)
-            return data.read(maxbits)
+            
+            return data.readBig(maxbits)
         else
+            data.advance(bitsInPrefix + 1)
+        
             if k != 1
-                stream = stream << (result + 1)
-                v = get_next(stream, k)
-
-                pos += k - 1
-                result = result * m
-
-                if v >= 2
+                stream = stream << (bitsInPrefix + 1)
+                
+                console.log("\t\tStream", stream)
+                
+                result = bitsInPrefix * m
+                
+                v = (stream >>> (32 - k))
+                
+                console.log("\t\tv", v)
+                
+                data.advance(k - 1)
+                
+                if v > 1
                     result += v - 1
-                    pos += 1
+                    data.advance(1)
+                
+            
         
         return result
         
@@ -174,27 +185,27 @@ class Aglib
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
                 zmode = 1
-                k = lead(mb) - BITOFF + ((mb + MOFF) >> MDENSHIFT)
+                k = lead(mb) - BITOFF + ((mb + MOFF) >>> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
                 
-                [n, bitPos] = dyn_get_16(input, bitPos, mz, k)
+                n = dyn_get_16(data, mz, k)
+                
+                console.log("\t\tn", n)
                 
                 unless c + n <= samples
                     status = ALAC.error.paramError
                     break
                     
-                for j in [0...n]
+                for j in [0 ... n] by 1
                     out[outPtr++] = 0
                     c++
-                    
-                console.log c
                     
                 zmode = 0 if n >= 65535
                 mb = 0
             
-            console.log("\tmb", mb)
+            console.log("\tmb", mb, "\n")
             
-            debug()
+            debug() if c == 5
         
         return status
     
