@@ -20,26 +20,19 @@
 # Contains: ALAC mixing/matrixing routines to/from 32-bit predictor buffers.
 
 class Matrixlib
-    @unmix16 = (u, v, out, stride, samples, mixbits, mixres) ->
-        console.log("Stride, Samples, Mix Bits, Mix Res", stride, samples, mixbits, mixres)
-        console.log("U, V", u, v)
-        
+    @unmix16 = (u, v, out, stride, samples, mixbits, mixres) ->        
         # Conventional separated stereo
         if mixres is 0
-            console.log("Outputting Separated Stereo")
             for i in [0...samples] by 1
                 out[i * stride + 0] = u[i]
                 out[i * stride + 1] = v[i]
             
         # Matrixed stereo
         else
-            console.log("Outputting Matrixed Stereo")
             for i in [0...samples] by 1
                 l = u[i] + v[i] - ((mixres * v[i]) >> mixbits)
                 out[i * stride + 0] = l
                 out[i * stride + 1] = l - v[i]
-                
-        console.log(samples * stride)
     
     # unmix20
     # unmix24

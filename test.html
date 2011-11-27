@@ -8,13 +8,12 @@
     <p>Make sure you run build.sh after every change.</p>
     <script src="lib/alac.js"></script>
     <script src="sink.js"></script>
-    
-    <script src="vendor/core.js/js/core.js"></script>
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", "eod-begin.caf", true);
-        //xhr.open("GET", "out.caf", true);
+        // xhr.open("GET", "eod-begin.caf", true);
+        // xhr.open("GET", "out.caf", true);
+        xhr.open("GET", "planets.caf", true);
         //xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
@@ -30,8 +29,6 @@
                 fileVersion: data.readUInt16(),
                 fileFlags: data.readUInt16()
             }
-            
-            console.log('container', container);
             
             if (data.readString(4) !== 'desc')
                 return console.log("Invalid CAF, header is not followed by 'desc'");
@@ -49,7 +46,7 @@
                 bitsPerChannel: data.readUInt32()
             }
             
-            console.log('format', format);
+            // console.log('format', format);
             
             if (format.formatID !== 'alac')
                 return console.log("CAF does not contain Apple Lossless audio");
@@ -76,15 +73,13 @@
                         var outputs = [], times = 0;
                         
                         while (status == 0) {
-                          console.log("Packet", ++times);
+                          // console.log("Packet", ++times);
                           
                           var out = decoder.decode(bitbuffer, 0, format.framesPerPacket, format.channelsPerFrame);
                           
                           if (out[1]) {
                             var array = new Int16Array(out[1])
                             outputs.push(array);
-                            
-                            console.log("----- (", array.length.toString(), ") -----");
                           }
                           
                           status = out[0];
@@ -109,7 +104,7 @@
                               kthxbai += buffer.length;
                           
                               if (kthxbai > eod.length) {
-                                debugger;
+                                return sink.kill();
                               }
                             }, format.channelsPerFrame, null, format.sampleRate);
                         }

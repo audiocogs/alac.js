@@ -93,9 +93,7 @@ class ALACDecoder
             tag = data.readSmall(3)
             
             switch tag
-                when ID_SCE, ID_LFE
-                    console.log("LFE or SCE element")
-                    
+                when ID_SCE, ID_LFE                    
                     # Mono / LFE channel
                     elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
@@ -178,8 +176,6 @@ class ALACDecoder
                     # convert 32-bit integers into output buffer
                     switch @config.bitDepth
                         when 16
-                            console.log("16-bit output, yaay!")
-                            
                             out16 = new Int16Array(output, channelIndex)
                             j = 0
                             for i in [0...samples] by 1
@@ -188,16 +184,13 @@ class ALACDecoder
                                 
                         else
                             console.log("Only supports 16-bit samples right now")
-                            
                             return -9000
                         
                     
                     channelIndex += 1
                     return [status, output]
                     
-                when ID_CPE
-                    console.log("CPE element")
-                    
+                when ID_CPE                    
                     # if decoding this pair would take us over the max channels limit, bail
                     if (channelIndex + 2) > channels
                         # TODO: GOTO NOMOARCHANNELS
@@ -354,7 +347,6 @@ class ALACDecoder
                     status = this.fillElement(input, offset)
                     
                 when ID_END
-                    console.log("End of frame", data.offset)
                     data.align()
                     
                 else
@@ -363,5 +355,5 @@ class ALACDecoder
             
             if channelIndex >= channels
                 console.log("Channel Index is high:", data.pos - 0)
-        
+                
         return [status, output]
