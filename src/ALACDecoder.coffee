@@ -101,15 +101,13 @@ class ALACDecoder
                     @activeElements |= (1 << elementInstanceTag)
                     
                     # read the 12 unused header bits
-                    #unused = CSLoadManyBits(input, offset, 12)
                     unused = data.read(12)
                     return ALAC.errors.paramError unless unused is 0
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    #headerByte = CSLoadFewBits(input, offset, 4); offset += 4
                     headerByte = data.read(4)
-                    partialFrame = headerByte >> 3
-                    bytesShifted = (headerByte >> 1) & 0x3
+                    partialFrame = headerByte >>> 3
+                    bytesShifted = (headerByte >>> 1) & 0x3
                     return ALAC.errors.paramError if bytesShifted is 3
                     
                     shift = bytesShifted * 8
@@ -118,8 +116,7 @@ class ALACDecoder
                     
                     # check for partial frame to override requested samples
                     if partialFrame isnt 0
-                        samples = data.read(16) << 16
-                        samples |= data.read(16)
+                        samples = data.read(16) << 16 + data.read(16)
                     
                     if escapeFlag is 0
                         # compressed frame, read rest of parameters
@@ -127,27 +124,26 @@ class ALACDecoder
                         mixRes      = data.read(8)
                         
                         headerByte  = data.read(8)
-                        modeU       = headerByte >> 4
+                        modeU       = headerByte >>> 4
                         denShiftU   = headerByte & 0xf
                         
                         headerByte  = data.read(8)
-                        pbFactorU   = headerByte >> 5
+                        pbFactorU   = headerByte >>> 5
                         numU        = headerByte & 0x1f
                         
-                        for i in [0...numU]
+                        for i in [0...numU] by 1
                             coefsU[i] = data.read(16)
                         
                         # if shift active, skip the the shift buffer but remember where it starts
                         if bytesShifted isnt 0
-                            # shiftbits = bits?
+                            shiftbits = data.copy()
                             data.advance(shift * samples)
                         
                         params = Aglib.ag_params(@config.mb, (@config.pb * pbFactorU) / 4, @config.kb, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
                         return status unless status is ALAC.errors.noError
-                        return
                         
-                        if modeU is 0
+                        if modeU == 0
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         else
                             # the special "numActive == 31" mode can be done in-place
@@ -158,19 +154,18 @@ class ALACDecoder
                         # uncompressed frame, copy data into the mix buffer to use common output code
                         shift = 32 - chanBits
                         
-                        if chanBits <= 16
-                            for i in [0 ... samples]
-                                val = CSLoadManyBits(input, offset, chanBits); offset += chanBits
-                                val = (val << shift) >> shift
+                        if (chanBits <= 16)
+                            for i in [0 ... samples] by 1
+                                val = (data.read(chanBits) << shift) >> shift
                                 @mixBufferU[i] = val
                             
                         else
-                            # TODO: Fix with chanbits > 16
-                            console.log("Failing, not less than 16 bits per channel")
-                            return -9000
+                            for i in [0 ... samples] by 1
+                                val = (data.readBig(chanBits) << shift) >> shift
+                                @mixBufferU[i] = val
                         
                         maxBits = mixRes = 0
-                        bits1 = chanbits * samples # TODO: fix
+                        bits1 = chanbits * samples
                         bytesShifted = 0
                     
                     # now read the shifted values into the shift buffer
@@ -178,16 +173,19 @@ class ALACDecoder
                         shift = bytesShifted * 8
                         
                         for i in [0...samples]
-                            @shiftBuffer[i] = CSLoadManyBits(shiftBits, shift)
+                            @shiftBuffer[i] = shiftbits.read(shift)
                     
                     # convert 32-bit integers into output buffer
                     switch @config.bitDepth
                         when 16
                             console.log("16-bit output, yaay!")
                             
-                            # TODO: Do something
-                            
-                            break
+                            out16 = new Int16Array(output, channelIndex)
+                            j = 0
+                            for i in [0...samples] by 1
+                                out16[j] = @mixBufferU[i]
+                                j += channels
+                                
                         else
                             console.log("Only supports 16-bit samples right now")
                             
@@ -195,7 +193,7 @@ class ALACDecoder
                         
                     
                     channelIndex += 1
-                    outSamples = samples
+                    return [status, output]
                     
                 when ID_CPE
                     console.log("CPE element")
@@ -362,8 +360,8 @@ class ALACDecoder
                 else
                     console.log("Error in frame")
                     return ALAC.errors.paramError
-                
-            if channelIndex > channels
-                console.log("Channel Index is higher than the amount of channels")
+            
+            if channelIndex >= channels
+                console.log("Channel Index is high:", data.pos - 0)
         
         return [status, output]
