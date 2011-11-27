@@ -27,8 +27,6 @@ class Dplib
         return dst
     
     @unpc_block: (pc1, out, num, coefs, active, chanbits, denshift) ->
-        packet += 1
-        
         chanshift = 32 - chanbits
         denhalf = 1 << (denshift - 1)
         

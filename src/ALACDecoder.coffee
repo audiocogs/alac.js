@@ -36,29 +36,32 @@ class ALACDecoder
         
         if atom is 'frma'
             console.log "Skipping 'frma'"
-            data.pos += 12
-            
-        else if atom is 'alac'
+            data.advance(12)
+        
+        atom = data.stringAt(4, 4)
+        
+        if atom is 'alac'
             console.log "Skipping 'alac'"
-            data.pos += 12
+            data.advance(12)
             
-        if data.length - data.pos < 24
+        if data.remaining() < 24
             console.log "Cookie too short"
             return ALAC.errors.paramError
-            
-        @config = data.struct
-            frameLength: 'uint32'
-            compatibleVersion: 'uint8'
-            bitDepth: 'uint8'
-            pb: 'uint8'
-            mb: 'uint8'
-            kb: 'uint8'
-            numChannels: 'uint8'
-            maxRun: 'uint16'
-            maxFrameBytes: 'uint32'
-            avgBitRate: 'uint32'
-            sampleRate: 'uint32'
-            
+        
+        @config = {
+            frameLength: data.readUInt32(),
+            compatibleVersion: data.readUInt8(),
+            bitDepth: data.readUInt8(),
+            pb: data.readUInt8(),
+            mb: data.readUInt8(),
+            kb: data.readUInt8(),
+            numChannels: data.readUInt8(),
+            maxRun: data.readUInt16(),
+            maxFrameBytes: data.readUInt32(),
+            avgBitRate: data.readUInt32(),
+            sampleRate: data.readUInt32()
+        }
+        
         console.log 'cookie', @config
         
         @mixBufferU = new Int32Array(@config.frameLength)

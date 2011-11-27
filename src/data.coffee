@@ -86,23 +86,24 @@ class Data
         # NaN or Infinity
         if exp is 0x7ff
             return if frac then NaN else sign * Infinity
-
+        
         return sign * ((frac | 0x100000) * Math.pow(2, exp - 1023 - 20) + low * Math.pow(2, exp - 1023 - 52))
-
+    
     readString: (length) ->
-        ret = []
-        for i in [0...length]
-            ret[i] = String.fromCharCode @readByte()
-
-        return ret.join ''
-
+        value = this.stringAt(0, length)
+        
+        this.advance(length)
+        
+        return value
+    
     stringAt: (pos, length) ->
-        p = @pos
-        @pos = pos
-        ret = @readString length
-        @pos = p
-        return ret
-
+        ret = []
+        
+        for i in [@pos + pos ... @pos + pos + length] by 1
+            ret[i] = String.fromCharCode @data[i]
+        
+        return ret.join ''
+    
     slice: (start, end) ->
         @data.subarray(start, end)
 
@@ -112,30 +113,15 @@ class Data
             buf.push @readByte()
 
         return buf
-
-    types =
-        'uint8'  : 'UInt8'
-        'uint16' : 'UInt16'
-        'uint32' : 'UInt32'
-        'uint64' : 'UInt64'
-        'int8'   : 'Int8'
-        'int16'  : 'Int16'
-        'int32'  : 'Int32'
-        'float'  : 'Float'
-        'float32': 'Float'
-        'double' : 'Double'
-        'float64': 'Double'
-
-    struct: (properties) ->
-        out = {}
-
-        for key, val of properties
-            if val.slice(0, 7) is 'string['
-                out[key] = @readString +val.slice(7, -1)
-            else
-                out[key] = this['read' + types[val]]()
-
-        return out
+    
+    advance: (bytes) ->
+        @pos += bytes
+    
+    rewind: (bytes) ->
+        @pos -= bytes
+    
+    remaining: ->
+        return @length - @pos
 
 class BitBuffer
     window.BitBuffer = BitBuffer

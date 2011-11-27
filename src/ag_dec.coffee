@@ -55,37 +55,37 @@ class Aglib
         input >>> (32 - suff)
 
     dyn_get_16 = (data, pos, m, k) ->
-        debug()
-        input = data.data
-        stream = read(input, data.offset + (pos >> 3)) 
-        stream <<= (pos & 7)
+        offs = data.pos;  stream = data.peekBig(32 - offs) << offs
         
-        pre = lead(~stream)
-
-        if pre >= MAX_PREFIX_16
-            pre = MAX_PREFIX_16
-            pos += pre
+        bitsInPrefix = lead(~stream)
+        
+        if bitsInPrefix >= MAX_PREFIX_16
+            data.advance(MAX_PREFIX_16 + MAX_DATATYPE_BITS_16)
             
-            stream <<= pre
-            result = get_next(stream, MAX_DATATYPE_BITS_16)
-
-            pos += MAX_DATATYPE_BITS_16
+            stream = stream << (bitsInPrefix + 1)
             
+            result = (stream >>> (32 - MAX_DATATYPE_BITS_16))
         else
-            pos += pre + 1
-
-            stream <<= pre + 1
-            v = get_next(stream, k)
-
-            pos += k
-            result = pre * m + v - 1
-
-            if v < 2
-                result -= (v - 1)
-                pos -= 1
-
-        return [result, pos]
-
+            data.advance(bitsInPrefix + 1)
+        
+            if k != 1
+                stream = stream << (bitsInPrefix + 1)
+                result = bitsInPrefix * m
+                
+                v = (stream >>> (32 - k))
+                
+                data.advance(k)
+                
+                result = bitsInPrefix * m + v - 1;
+                
+                if v < 2
+                    result -= (v - 1)
+                    data.rewind(1)
+                
+            
+        
+        return result
+    
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.pos;  stream = data.peekBig(32 - offs) << offs
         
@@ -163,24 +163,20 @@ class Aglib
             zmode = 0
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
-                console.log("Not debugged recursive yet")
-                debug()
-                
                 zmode = 1
                 k = lead(mb) - BITOFF + ((mb + MOFF) >>> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
                 
                 n = dyn_get_16(data, mz, k)
                 
-                console.log("\t\tn", n)
+                console.log("\t\tRecursive N", n)
                 
                 unless c + n <= samples
                     status = ALAC.error.paramError
                     break
                     
                 for j in [0 ... n] by 1
-                    out[outPtr++] = 0
-                    c++
+                    pc[c++] = 0
                     
                 zmode = 0 if n >= 65535
                 mb = 0

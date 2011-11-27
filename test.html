@@ -26,10 +26,10 @@
             if (data.readString(4) !== 'caff')
                 return console.log("Invalid CAF, does not begin with 'caff'");
                 
-            var container = data.struct({
-                fileVersion: 'uint16',
-                fileFlags: 'uint16'
-            });
+            var container = {
+                fileVersion: data.readUInt16(),
+                fileFlags: data.readUInt16()
+            }
             
             console.log('container', container);
             
@@ -39,15 +39,15 @@
             if (data.readUInt64() !== 32)
                 return console.log("Invalid 'desc' size, should be 32");
             
-            var format = data.struct({
-                sampleRate: 'double',
-                formatID: 'string[4]',
-                formatFlags: 'uint32',
-                bytesPerPacket: 'uint32',
-                framesPerPacket: 'uint32',
-                channelsPerFrame: 'uint32',
-                bitsPerChannel: 'uint32'
-            });
+            var format = {
+                sampleRate: data.readDouble(),
+                formatID: data.readString(4),
+                formatFlags: data.readUInt32(),
+                bytesPerPacket: data.readUInt32(),
+                framesPerPacket: data.readUInt32(),
+                channelsPerFrame: data.readUInt32(),
+                bitsPerChannel: data.readUInt32()
+            }
             
             console.log('format', format);
             
@@ -74,7 +74,7 @@
                         
                         var outputs = [], times = 0;
                         
-                        while (status == 0) {
+                        while (status == 0 && times != 500) {
                           console.log("Packet", ++times);
                           
                           var out = decoder.decode(bitbuffer, 0, 4096, 2);
