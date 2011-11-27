@@ -16,7 +16,7 @@
 #  limitations under the License.
 #
 
-# File: ag_dec.coffee
+# File: dp_dec.coffee
 # Contains: Dynamic Predictor decode routines
 
 class Dplib
@@ -47,7 +47,7 @@ class Dplib
             
             return
         
-        for i in [1 .. active] by 1
+        for i in [1..active] by 1
             del = pc1[i] + out[i - 1]
             out[i] = (del << chanshift) >> chanshift
         
@@ -59,7 +59,7 @@ class Dplib
         
         sum1 = 0
         
-        for i in [lim ... num] by 1
+        for i in [lim...num] by 1
             sum1 = 0; top = out[i - lim]; offset = i - 1
             
             for j in [0 ... active] by 1
@@ -77,12 +77,9 @@ class Dplib
                     sgn = (-dd >>> 31) | (dd >> 31)
                     
                     coefs[j] -= sgn
-                    
                     del0 -= (active - j) * ((sgn * dd) >> denshift)
                     
-                    if del0 <= 0
-                        break
-                    
+                    break if del0 <= 0                    
                 
             else if sg < 0
                 for j in [active - 1 .. 0] by -1
@@ -90,13 +87,6 @@ class Dplib
                     sgn = (-dd >>> 31) | (dd >> 31)
                     
                     coefs[j] += sgn
-                    
                     del0 -= (active - j) * ((-sgn * dd) >> denshift)
                     
-                    if del0 >= 0
-                        break
-                    
-                
-            
-        
-    
+                    break if del0 >= 0

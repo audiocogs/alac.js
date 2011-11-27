@@ -41,10 +41,8 @@ class Aglib
         c = 1 << 31
                 
         for i in [0 ... 32] by 1
-            if (c & m) != 0
-                return i
-            
-            c = c >>> 1
+            return i if (c & m) != 0            
+            c >>>= 1
     
         return 32
         
@@ -54,24 +52,22 @@ class Aglib
     get_next = (input, suff) ->
         input >>> (32 - suff)
 
-    dyn_get_16 = (data, pos, m, k) ->
-        offs = data.pos;  stream = data.peekBig(32 - offs) << offs
-        
+    dyn_get_16 = (data, m, k) ->
+        offs = data.pos
+        stream = data.peekBig(32 - offs) << offs
         bitsInPrefix = lead(~stream)
         
         if bitsInPrefix >= MAX_PREFIX_16
             data.advance(MAX_PREFIX_16 + MAX_DATATYPE_BITS_16)
-            
-            stream = stream << (bitsInPrefix + 1)
-            
+            stream <<= (bitsInPrefix + 1)
             result = (stream >>> (32 - MAX_DATATYPE_BITS_16))
+            
         else
             data.advance(bitsInPrefix + 1)
-        
+            
             if k != 1
-                stream = stream << (bitsInPrefix + 1)
+                stream <<= (bitsInPrefix + 1)
                 result = bitsInPrefix * m
-                
                 v = (stream >>> (32 - k))
                 
                 data.advance(k)
@@ -81,14 +77,12 @@ class Aglib
                 if v < 2
                     result -= (v - 1)
                     data.rewind(1)
-                
-            
-        
+
         return result
     
     dyn_get_32 = (data, m, k, maxbits) ->
-        offs = data.pos;  stream = data.peekBig(32 - offs) << offs
-        
+        offs = data.pos
+        stream = data.peekBig(32 - offs) << offs
         bitsInPrefix = lead(~stream)
         
         if bitsInPrefix >= MAX_PREFIX_32
@@ -99,9 +93,8 @@ class Aglib
             data.advance(bitsInPrefix + 1)
         
             if k != 1
-                stream = stream << (bitsInPrefix + 1)
+                stream <<= (bitsInPrefix + 1)
                 result = bitsInPrefix * m
-                
                 v = (stream >>> (32 - k))
                 
                 data.advance(k - 1)
@@ -109,9 +102,7 @@ class Aglib
                 if v > 1
                     result += v - 1
                     data.advance(1)
-                
-            
-        
+
         return result
         
     @standard_ag_params: (fullwidth, sectorwidth) ->
@@ -131,18 +122,13 @@ class Aglib
     @dyn_decomp: (params, data, pc, samples, maxSize) ->
         {pb, kb, wb, mb0: mb} = params
         
-        start = data.copy()
-        
         zmode = 0
         c = 0
-        
         status = ALAC.errors.noError
         
-        while c < samples
+        while c < samples            
             m = mb >>> QBSHIFT
-            k = lg3a(m)
-            
-            k = Math.min(k, kb)
+            k = Math.min(lg3a(m), kb)
             m = (1 << k) - 1
             
             n = dyn_get_32(data, m, k, maxSize)
@@ -170,17 +156,12 @@ class Aglib
                 console.log("\t\tRecursive N", n)
                 
                 unless c + n <= samples
-                    status = ALAC.error.paramError
-                    break
+                    return ALAC.errors.paramError
                     
-                for j in [0 ... n] by 1
+                for j in [0...n] by 1
                     pc[c++] = 0
                     
                 zmode = 0 if n >= 65535
                 mb = 0
-                
-                debugger
-            
         
         return status
-    

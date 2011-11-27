@@ -13,9 +13,9 @@
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        // xhr.open("GET", "eod-begin.caf", true);
-        // xhr.open("GET", "cut.caf", true);
-        xhr.open("GET", "02 - End of Daylight.caf", true);
+        xhr.open("GET", "eod-begin.caf", true);
+        //xhr.open("GET", "out.caf", true);
+        //xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
         
@@ -68,10 +68,11 @@
                     case 'data':
                         console.log("Found data");
                         
-                        var dataOffset = data.pos + 4, dataSize = data.pos + size - 8, status = 0;
+                        var dataOffset = data.pos + 4,
+                            dataSize = data.pos + size - 8, 
+                            status = 0;
                         
-                        bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
-                        
+                        var bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
                         var outputs = [], times = 0;
                         
                         while (status == 0) {
@@ -81,38 +82,43 @@
                           
                           if (out[1]) {
                             var array = new Int16Array(out[1])
-                            
                             outputs.push(array);
                             
                             console.log("----- (", array.length.toString(), ") -----");
                           }
                           
-                          status = out[0]
+                          status = out[0];
                         }
                         
-                        eod = new Float32Array(outputs.length * outputs[0].length);
+                        if (outputs.length > 0) {
+                            eod = new Float32Array(outputs.length * outputs[0].length);
                         
-                        for (var i = 0; i < outputs.length; i++) {
-                          for (var j = 0; j < outputs[0].length; j++) {
-                            eod[i * outputs[0].length + j] = outputs[i][j] / Math.pow(2, 15);
-                          }
+                            for (var i = 0; i < outputs.length; i++) {
+                              for (var j = 0; j < outputs[0].length; j++) {
+                                eod[i * outputs[0].length + j] = outputs[i][j] / Math.pow(2, 15);
+                              }
+                            }
+                        
+                            var kthxbai = 0;
+                        
+                            var sink = Sink(function(buffer, channelCount){
+                              for (var i = 0; i < buffer.length; i++){
+                                buffer[i] = eod[kthxbai + i];
+                              }
+                          
+                              kthxbai += buffer.length;
+                          
+                              if (kthxbai > eod.length) {
+                                debugger;
+                              }
+                            }, 2, null, 44100);
                         }
-                        
-                        var kthxbai = 0;
-                        
-                        var sink = Sink(function(buffer, channelCount){
-                          for (var i = 0; i < buffer.length; i++){
-                            buffer[i] = eod[kthxbai + i];
-                          }
-                          
-                          kthxbai += buffer.length;
-                          
-                          if (kthxbai > eod.length) {
-                            debugger;
-                          }
-                        }, 2, null, 44100);
+                        else {
+                            console.log("ERROR!");
+                        }
                         
                         break;
+                        
                     default:
                         console.log("Found random type, '" + type + "'");
                         break;
