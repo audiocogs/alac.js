@@ -139,7 +139,7 @@ class ALACDecoder
                             shiftbits = data.copy()
                             data.advance(shift * samples)
                         
-                        params = Aglib.ag_params(@config.mb, (@config.pb * pbFactorU) / 4, @config.kb, samples, @config.maxRun)
+                        params = Aglib.ag_params(@config.mb, (@config.pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
                         return status unless status is ALAC.errors.noError
                         

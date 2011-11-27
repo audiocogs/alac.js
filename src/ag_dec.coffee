@@ -65,36 +65,35 @@ class Aglib
         else
             data.advance(bitsInPrefix + 1)
             
-            if k != 1
-                stream <<= (bitsInPrefix + 1)
-                result = bitsInPrefix * m
-                v = (stream >>> (32 - k))
-                
-                data.advance(k)
-                
-                result = bitsInPrefix * m + v - 1;
-                
-                if v < 2
-                    result -= (v - 1)
-                    data.rewind(1)
+            stream <<= (bitsInPrefix + 1)
+            result = bitsInPrefix * m
+            v = (stream >>> (32 - k))
+            
+            data.advance(k)
+            
+            result = bitsInPrefix * m + v - 1;
+            
+            if v < 2
+                result -= (v - 1)
+                data.rewind(1)
 
         return result
     
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.pos
         stream = data.peekBig(32 - offs) << offs
-        bitsInPrefix = lead(~stream)
+        result = lead(~stream)
         
-        if bitsInPrefix >= MAX_PREFIX_32
+        if result >= MAX_PREFIX_32
             data.advance(MAX_PREFIX_32)
             return data.readBig(maxbits)
             
         else
-            data.advance(bitsInPrefix + 1)
+            data.advance(result + 1)
         
             if k != 1
-                stream <<= (bitsInPrefix + 1)
-                result = bitsInPrefix * m
+                stream <<= (result + 1)
+                result *= m
                 v = (stream >>> (32 - k))
                 
                 data.advance(k - 1)
@@ -120,7 +119,7 @@ class Aglib
         maxrun: maxrun
         
     @dyn_decomp: (params, data, pc, samples, maxSize) ->
-        {pb, kb, wb, mb0: mb} = params
+        {pb, kb, wb, mb0:mb} = params
         
         zmode = 0
         c = 0
@@ -150,10 +149,7 @@ class Aglib
                 
                 k = lead(mb) - BITOFF + ((mb + MOFF) >> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
-                
                 n = dyn_get_16(data, mz, k)
-                
-                console.log("\t\tRecursive N", n)
                 
                 unless c + n <= samples
                     return ALAC.errors.paramError

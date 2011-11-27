@@ -78,7 +78,7 @@
                         while (status == 0) {
                           console.log("Packet", ++times);
                           
-                          var out = decoder.decode(bitbuffer, 0, 4096, 2);
+                          var out = decoder.decode(bitbuffer, 0, format.framesPerPacket, format.channelsPerFrame);
                           
                           if (out[1]) {
                             var array = new Int16Array(out[1])
@@ -111,7 +111,7 @@
                               if (kthxbai > eod.length) {
                                 debugger;
                               }
-                            }, 2, null, 44100);
+                            }, format.channelsPerFrame, null, format.sampleRate);
                         }
                         else {
                             console.log("ERROR!");
