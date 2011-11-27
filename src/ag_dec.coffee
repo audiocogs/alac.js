@@ -31,8 +31,8 @@ class Aglib
     MMULSHIFT = 2
     MDENSHIFT = QBSHIFT - MMULSHIFT - 1
     MOFF = 1 << (MDENSHIFT-2)
-    N_MAX_MEAN_CLAMP = 0xffff
-    N_MEAN_CLAMP_VAL = 0xffff
+    N_MAX_MEAN_CLAMP = 0xFFFF
+    N_MEAN_CLAMP_VAL = 0xFFFF
     MMULSHIFT = 2
     BITOFF = 24
     MAX_DATATYPE_BITS_16 = 16
@@ -131,9 +131,6 @@ class Aglib
     @dyn_decomp: (params, data, pc, samples, maxSize) ->
         {pb, kb, wb, mb0: mb} = params
         
-        console.log("\tPC", pc)
-        console.log("\tSamples, Max Size", samples, maxSize)
-        
         start = data.copy()
         
         zmode = 0
@@ -155,7 +152,7 @@ class Aglib
             multiplier = -(ndecode & 1) | 1
             pc[c++] = ((ndecode + 1) >>> 1) * multiplier
             
-            mb = pb * (n + zmode) + mb - ((pb * mb) >>> QBSHIFT)
+            mb = pb * (n + zmode) + mb - ((pb * mb) >> QBSHIFT)
             
             # update mean tracking
             mb = N_MEAN_CLAMP_VAL if n > N_MAX_MEAN_CLAMP
@@ -164,7 +161,8 @@ class Aglib
             
             if ((mb << MMULSHIFT) < QB) && (c < samples)
                 zmode = 1
-                k = lead(mb) - BITOFF + ((mb + MOFF) >>> MDENSHIFT)
+                
+                k = lead(mb) - BITOFF + ((mb + MOFF) >> MDENSHIFT)
                 mz = ((1 << k) - 1) & wb
                 
                 n = dyn_get_16(data, mz, k)
@@ -180,6 +178,8 @@ class Aglib
                     
                 zmode = 0 if n >= 65535
                 mb = 0
+                
+                debugger
             
         
         return status

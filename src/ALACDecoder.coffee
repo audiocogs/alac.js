@@ -203,15 +203,11 @@ class ALACDecoder
                 when ID_CPE
                     console.log("CPE element")
                     
-                    console.log("Channel Index", channelIndex) # DEBUG
-                    
                     if (channelIndex + 2) > channels
                         # TODO: GOTO NOMOARCHANNELS
                         console.log("No more channels, please")
                     
                     elementInstanceTag = data.readSmall(4)
-                    
-                    console.log("Element Instance Tag", elementInstanceTag) # DEBUG
                     
                     @activeElements |= (1 << elementInstanceTag)
                     
@@ -224,13 +220,9 @@ class ALACDecoder
                     
                     headerByte = data.read(4)
                     
-                    console.log("Header Byte", headerByte) # DEBUG
-                    
                     partialFrame = headerByte >>> 3
                     
                     bytesShifted = (headerByte >>> 1) & 0x03
-                    
-                    console.log("Partial Frame, Bytes Shifted", partialFrame, bytesShifted) # DEBUG
                     
                     if bytesShifted == 3
                         console.log("Moooom, the reference said that bytes shifted couldn't be 3!")
@@ -239,34 +231,22 @@ class ALACDecoder
                     
                     escapeFlag = headerByte & 0x01
                     
-                    console.log("Escape Flag", escapeFlag) # DEBUG
-                    
                     chanBits = @config.bitDepth - (bytesShifted * 8) + 1
-                    
-                    console.log("Channel Bits", chanBits) # DEBUG
                     
                     if partialFrame != 0
                         samples = data.read(16) << 16 + data.read(16)
-                    
-                    console.log("Samples", samples) # DEBUG
                     
                     if escapeFlag == 0
                         mixBits = data.read(8)
                         mixRes = data.read(8)
                         
-                        console.log("Mix Bits, Mix Res", mixBits, mixRes) # DEBUG
-                        
                         headerByte = data.read(8)
                         modeU = headerByte >>> 4
                         denShiftU = headerByte & 0x0F
                         
-                        console.log("Mode U, DenShift U", modeU, denShiftU) # DEBUG
-                        
                         headerByte = data.read(8)
                         pbFactorU = headerByte >>> 5
                         numU = headerByte & 0x1F
-                        
-                        console.log("pbFactor U, Num U", pbFactorU, numU) # DEBUG
                         
                         for i in [0 ... numU] by 1
                             coefsU[i] = data.read(16)
@@ -275,26 +255,16 @@ class ALACDecoder
                         modeV = headerByte >>> 4
                         denShiftV = headerByte & 0x0F
                         
-                        console.log("Mode V, DenShift V", modeV, denShiftV) # DEBUG
-                        
                         headerByte = data.read(8)
                         pbFactorV = headerByte >>> 5
                         numV = headerByte & 0x1F;
                         
-                        console.log("pbFactor V, Num V", pbFactorU, numV) # DEBUG
-                        
                         for i in [0 ... numV] by 1
                             coefsV[i] = data.read(16)
-                        
-                        console.log("Coefs U, V", coefsU, coefsV)
                         
                         if bytesShifted != 0
                             shiftbits = data.copy()
                             bits.advance((bytesShifted * 8) * 2 * samples)
-                        
-                        console.log("Bytes Shifted", bytesShifted)
-                        
-                        console.log("AG: Left")
                         
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
@@ -304,16 +274,12 @@ class ALACDecoder
                             
                             return status
                         
-                        console.log("Mode U", modeU)
-                        
                         if modeU == 0
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
                         else
                             # the special "numActive == 31" mode can be done in-place
                             Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
                             Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
-                        
-                        console.log("AG: Right")
                         
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorV) / 4, @config.kb, samples, samples, @config.maxRun)
                         status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
@@ -322,8 +288,6 @@ class ALACDecoder
                             console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)…")
                             
                             return status
-                        
-                        console.log("Mode V", modeV)
                         
                         if modeV == 0
                             Dplib.unpc_block(@predictor, @mixBufferV, samples, coefsV, numV, chanBits, denShiftV)
@@ -356,13 +320,9 @@ class ALACDecoder
                                 @mixBufferV[i] = val
                             
                         
-                        console.log("Mix Buffer U, V", @mixBufferU, @mixBufferV) # DEBUG
-                        
                         mixBits = mixRes = 0
                         bits1 = chanBits * samples
                         bytesShifted = 0
-                    
-                    console.log("Bytes Shifted", bytesShifted) # DEBUG
                     
                     if bytesShifted != 0
                         shift = bytesShifted * 8
@@ -375,12 +335,7 @@ class ALACDecoder
                     switch @config.bitDepth
                         when 16
                             out16 = new Int16Array(output, channelIndex)
-                            
-                            console.log("Channels, Samples, Mix Bits, Mix Res", channels, samples, mixBits, mixRes)
-                            
                             Matrixlib.unmix16(@mixBufferU, @mixBufferV, out16, channels, samples, mixBits, mixRes)
-                            
-                            console.log("Output", out16[0], out16[1], out16[2], out16[3], out16[4], out16[5], "...", out16[1024], out16[1025], out16[1026], out16[1027], out16[1028], out16[1029])
                         else
                             console.log("Evil bit depth")
                             

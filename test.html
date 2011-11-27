@@ -74,7 +74,7 @@
                         
                         var outputs = [], times = 0;
                         
-                        while (status == 0 && times != 500) {
+                        while (status == 0) {
                           console.log("Packet", ++times);
                           
                           var out = decoder.decode(bitbuffer, 0, 4096, 2);

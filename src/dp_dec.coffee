@@ -32,9 +32,6 @@ class Dplib
         
         out[0] = pc1[0];
         
-        console.log("\tChanshift, Denhalf, Active", chanshift, denhalf, active)
-        console.log("\tPC1", pc1)
-        
         # just copy if active == 0
         return copy(out, 0, pc1, 0, num * 4) if active == 0
         
@@ -102,6 +99,4 @@ class Dplib
                 
             
         
-        console.log("\tLast Sum", sum1)
-        console.log("\tOutput", out)
     
