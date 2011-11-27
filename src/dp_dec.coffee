@@ -27,6 +27,8 @@ class Dplib
         return dst
     
     @unpc_block: (pc1, out, num, coefs, active, chanbits, denshift) ->
+        packet += 1
+        
         chanshift = 32 - chanbits
         denhalf = 1 << (denshift - 1)
         
@@ -41,12 +43,12 @@ class Dplib
         # short-circuit if numactive is 31    
         if active == 31
             debug()
-            prev = out_a[0]
+            prev = out[0]
             
             for i in [1...num]
-                del = pcl_a[i] + prev
+                del = pcl[i] + prev
                 prev = (del << chanshift) >> chanshift
-                out_a[i] = prev
+                out[i] = prev
             
             return
         
@@ -60,24 +62,48 @@ class Dplib
         # if active == 8 # Optimization for active == 8
         # else           # General case
         
+        sum1 = 0
+        
         for i in [lim ... num] by 1
             sum1 = 0; top = out[i - lim]; offset = i - 1
             
-            sum1 += coefs[j] * (out[offset - j] - top) for j in [0 ... active] by 1
+            for j in [0 ... active] by 1
+                sum1 += coefs[j] * (out[offset - j] - top)
             
             del = del0 = pc1[i]
-            sg  = del / Math.abs(del)
+            sg  = (-del >>> 31) | (del >> 31)
             
             del += top + ((sum1 + denhalf) >> denshift)
             out[i] = (del << chanshift) >> chanshift
             
-            for j in [active - 1 .. 0] # Modified from Apple ALAC to remove the two loops
-                dd = top - out[offset - j]
-                coefs[j] += sg * dd / Math.abs(dd)
-                del0 += sg * (active - j) * (Math.abs(dd) >> denshift)
+            if sg > 0
+                for j in [active - 1 .. 0] by -1
+                    dd = top - out[offset - j]
+                    sgn = (-dd >>> 31) | (dd >> 31)
+                    
+                    coefs[j] -= sgn
+                    
+                    del0 -= (active - j) * ((sgn * dd) >> denshift)
+                    
+                    if del0 <= 0
+                        break
+                    
                 
-                break if sg * del0 >= 0
+            else if sg < 0
+                for j in [active - 1 .. 0] by -1
+                    dd = top - out[offset - j]
+                    sgn = (-dd >>> 31) | (dd >> 31)
+                    
+                    coefs[j] += sgn
+                    
+                    del0 -= (active - j) * ((-sgn * dd) >> denshift)
+                    
+                    if del0 >= 0
+                        break
+                    
+                
             
         
+        console.log("\tLast Sum", sum1)
         console.log("\tOutput", out)
     

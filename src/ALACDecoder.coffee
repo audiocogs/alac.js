@@ -377,7 +377,7 @@ class ALACDecoder
                             
                             Matrixlib.unmix16(@mixBufferU, @mixBufferV, out16, channels, samples, mixBits, mixRes)
                             
-                            console.log("Output", out16)
+                            console.log("Output", out16[0], out16[1], out16[2], out16[3], out16[4], out16[5], "...", out16[1024], out16[1025], out16[1026], out16[1027], out16[1028], out16[1029])
                         else
                             console.log("Evil bit depth")
                             
