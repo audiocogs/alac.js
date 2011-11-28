@@ -43,15 +43,12 @@ class Aglib
         for i in [0 ... 32] by 1
             return i if (c & m) != 0            
             c >>>= 1
-    
-        return 32
         
+        return 32
+    
     lg3a = (x) ->
         31 - lead(x + 3)
-
-    get_next = (input, suff) ->
-        input >>> (32 - suff)
-
+    
     dyn_get_16 = (data, m, k) ->
         offs = data.pos
         stream = data.peekBig(32 - offs) << offs
