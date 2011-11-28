@@ -89,3 +89,5 @@ class Dplib
                     del0 -= (active - j) * ((-sgn * dd) >> denshift)
                     
                     break if del0 >= 0
+                    
+        return
