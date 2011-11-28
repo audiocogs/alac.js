@@ -93,7 +93,7 @@ class ALACDecoder
             tag = data.readSmall(3)
             
             switch tag
-                when ID_SCE, ID_LFE                    
+                when ID_SCE, ID_LFE  
                     # Mono / LFE channel
                     elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
@@ -340,11 +340,29 @@ class ALACDecoder
                     
                 when ID_DSE
                     console.log("Data Stream element, ignoring")
-                    status = this.dataStreamElement(input, offset)
+                    
+                    # the tag associates this data stream element with a given audio element
+                    elementInstanceTag = data.readSmall(4)
+                    dataByteAlignFlag = data.readOne()
+                    
+                    # 8-bit count or (8-bit + 8-bit count) if 8-bit count == 255
+                    count = data.readSmall(8)
+                    if count == 255
+                        count += data.readSmall(8)
+                    
+                    # the align flag means the bitstream should be byte-aligned before reading the following data bytes
+                    if dataByteAlignFlag
+                        data.align()
+                        
+                    # skip the data bytes
+                    data.advance(count * 8)
+                    unless data.pos <= data.length
+                        return ALAC.errors.paramError
+                        
+                    status = ALAC.errors.noError
                     
                 when ID_FIL
                     console.log("Fill element, ignoring")
-                    status = this.fillElement(input, offset)
                     
                 when ID_END
                     data.align()

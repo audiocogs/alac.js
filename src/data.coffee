@@ -156,13 +156,18 @@ class BitBuffer
 
     # Reads up to 8 bits
     readSmall: (bits) ->
-        a = (@data[@offset + 0] <<  8) +
-            (@data[@offset + 1] <<  0)
+        a = (@data[@offset + 0] << 8) +
+            (@data[@offset + 1] << 0)
         
         a = (a << @pos) & 0xFFFF
         
         @advance(bits)
         return (a >>> (16 - bits))
+        
+    readOne: ->
+        bits = @data[@offset] >>> (7 - @pos) & 1
+        @advance(1)
+        return bits
     
     peekBig: (bits) ->
         v = @readBig(bits)
@@ -175,7 +180,7 @@ class BitBuffer
         @pos &= 7
     
     rewind: (bits) ->
-        this.advance(-bits)
+        @advance(-bits)
     
     align: () ->
         @advance(8 - @pos) if @pos != 0

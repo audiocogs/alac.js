@@ -78,7 +78,7 @@
                           var out = decoder.decode(bitbuffer, 0, format.framesPerPacket, format.channelsPerFrame);
                           
                           if (out[1]) {
-                            var array = new Int16Array(out[1])
+                            var array = new Int16Array(out[1]);
                             outputs.push(array);
                           }
                           
