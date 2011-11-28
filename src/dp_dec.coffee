@@ -37,11 +37,10 @@ class Dplib
         
         # short-circuit if numactive is 31    
         if active == 31
-            debug()
             prev = out[0]
             
-            for i in [1...num]
-                del = pcl[i] + prev
+            for i in [1...num] by 1
+                del = pc1[i] + prev
                 prev = (del << chanshift) >> chanshift
                 out[i] = prev
             
