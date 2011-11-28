@@ -114,13 +114,17 @@ class BitBuffer
         @pos = 0 # bit position
         @offset = 0 # byte offset
         @length = @data.length * 8
-
+    
+    TWO_32 = Math.pow(2, 32)
+    TWO_24 = Math.pow(2, 24)
+    TWO_16 = Math.pow(2, 16)
+    TWO_8  = Math.pow(2, 8)
     readBig: (bits) ->
-        a = (@data[@offset + 0] * Math.pow(2, 32)) +
-            (@data[@offset + 1] * Math.pow(2, 24)) +
-            (@data[@offset + 2] * Math.pow(2, 16)) +
-            (@data[@offset + 3] * Math.pow(2, 8)) +
-            (@data[@offset + 4] * Math.pow(2, 0))
+        a = (@data[@offset + 0] * TWO_32) +
+            (@data[@offset + 1] * TWO_24) +
+            (@data[@offset + 2] * TWO_16) +
+            (@data[@offset + 3] * TWO_8) +
+            (@data[@offset + 4])
         
         a = (a % Math.pow(2, 40 - @pos))
         a = (a / Math.pow(2, 40 - @pos - bits))
