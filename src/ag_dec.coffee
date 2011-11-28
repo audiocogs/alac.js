@@ -40,14 +40,11 @@ class Aglib
     lead = (m) ->
         c = 1 << 31
                 
-        for i in [0 ... 32] by 1
-            return i if (c & m) != 0            
+        for i in [0...32] by 1
+            return i if (c & m) != 0
             c >>>= 1
         
         return 32
-    
-    lg3a = (x) ->
-        31 - lead(x + 3)
     
     dyn_get_16 = (data, m, k) ->
         offs = data.pos
@@ -124,7 +121,7 @@ class Aglib
         
         while c < samples            
             m = mb >>> QBSHIFT
-            k = Math.min(lg3a(m), kb)
+            k = Math.min(31 - lead(m + 3), kb)
             m = (1 << k) - 1
             
             n = dyn_get_32(data, m, k, maxSize)
