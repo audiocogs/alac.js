@@ -59,20 +59,6 @@ class Data
     readInt8: ->
         @readByte()
 
-    readFloat: ->
-        num = @readUInt32()
-        return 0.0 if not num or num is 0x80000000 # 0.0 or -0.0
-
-        sign = (num >> 31) * 2 + 1 # +1 or -1
-        exp = (num >> 23) & 0xff
-        frac =  num & 0x7fffff
-
-        # NaN or Infinity
-        if exp is 0xff
-            return if frac then NaN else sign * Infinity
-
-        return sign * (frac | 0x00800000) * Math.pow(2, exp - 127 - 23)
-
     readDouble: ->
         high = @readUInt32()
         low = @readUInt32()
@@ -90,16 +76,14 @@ class Data
         return sign * ((frac | 0x100000) * Math.pow(2, exp - 1023 - 20) + low * Math.pow(2, exp - 1023 - 52))
     
     readString: (length) ->
-        value = this.stringAt(0, length)
-        
-        this.advance(length)
-        
+        value = @stringAt(0, length)
+        @advance(length)
         return value
     
     stringAt: (pos, length) ->
         ret = []
         
-        for i in [@pos + pos ... @pos + pos + length] by 1
+        for i in [@pos + pos...@pos + pos + length] by 1
             ret[i] = String.fromCharCode @data[i]
         
         return ret.join ''
