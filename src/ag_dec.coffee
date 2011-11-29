@@ -64,7 +64,6 @@ class Aglib
             v = (stream >>> (32 - k))
             
             data.advance(k)
-            
             result = bitsInPrefix * m + v - 1;
             
             if v < 2
@@ -134,7 +133,8 @@ class Aglib
             mb = pb * (n + zmode) + mb - ((pb * mb) >> QBSHIFT)
             
             # update mean tracking
-            mb = N_MEAN_CLAMP_VAL if n > N_MAX_MEAN_CLAMP
+            if n > N_MAX_MEAN_CLAMP
+                mb = N_MEAN_CLAMP_VAL
             
             zmode = 0
             
