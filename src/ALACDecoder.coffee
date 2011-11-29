@@ -356,13 +356,25 @@ class ALACDecoder
                         
                     # skip the data bytes
                     data.advance(count * 8)
-                    unless data.pos <= data.length
+                    unless data.pos < data.length
                         return ALAC.errors.paramError
                         
                     status = ALAC.errors.noError
                     
                 when ID_FIL
                     console.log("Fill element, ignoring")
+                    
+                    # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
+                	# - plus this weird -1 thing I still don't fully understand
+                    count = data.readSmall(4)
+                    if count == 15
+                        count += data.readSmall(8) - 1
+                        
+                    data.advance(count * 8)
+                    unless data.pos < data.length
+                        return ALAC.errors.paramError
+                        
+                    status = ALAC.errors.noError
                     
                 when ID_END
                     data.align()
