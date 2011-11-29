@@ -170,7 +170,7 @@ class BitBuffer
     rewind: (bits) ->
         @advance(-bits)
     
-    align: () ->
+    align: ->
         @advance(8 - @pos) if @pos != 0
     
     copy: ->

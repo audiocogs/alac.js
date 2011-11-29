@@ -215,7 +215,7 @@ class Dplib
                     continue if del0 >= 0
                     
                     a0 += (-b0 >>> 31) | (b0 >> 31)
-                    
+                
             coefs[0] = a0
             coefs[1] = a1
             coefs[2] = a2
