@@ -33,6 +33,8 @@ class Matrixlib
                 l = u[i] + v[i] - ((mixres * v[i]) >> mixbits)
                 out[i * stride + 0] = l
                 out[i * stride + 1] = l - v[i]
+                
+        return
     
     # unmix20
     # unmix24
