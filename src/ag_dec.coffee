@@ -48,7 +48,7 @@ class Aglib
     
     dyn_get_16 = (data, m, k) ->
         offs = data.pos
-        stream = data.peekBig(32 - offs) << offs
+        stream = data.readBig(32 - offs, no) << offs
         bitsInPrefix = lead(~stream)
         
         if bitsInPrefix >= MAX_PREFIX_16
@@ -71,7 +71,7 @@ class Aglib
     
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.pos
-        stream = data.peekBig(32 - offs) << offs
+        stream = data.readBig(32 - offs, no) << offs
         result = lead(~stream)
         
         if result >= MAX_PREFIX_32
