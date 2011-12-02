@@ -48,24 +48,20 @@ class Aglib
     
     dyn_get_16 = (data, m, k) ->
         offs = data.pos
-        stream = data.peekBig(32 - offs) << offs
+        stream = data.readBig(32 - offs, no) << offs
         bitsInPrefix = lead(~stream)
         
         if bitsInPrefix >= MAX_PREFIX_16
             data.advance(MAX_PREFIX_16 + MAX_DATATYPE_BITS_16)
-            stream <<= (bitsInPrefix + 1)
+            stream <<= MAX_PREFIX_16
             result = (stream >>> (32 - MAX_DATATYPE_BITS_16))
             
         else
-            data.advance(bitsInPrefix + 1)
+            data.advance(bitsInPrefix + 1 + k)
             
             stream <<= (bitsInPrefix + 1)
-            result = bitsInPrefix * m
             v = (stream >>> (32 - k))
-            
-            data.advance(k)
-            
-            result = bitsInPrefix * m + v - 1;
+            result = bitsInPrefix * m + v - 1
             
             if v < 2
                 result -= (v - 1)
@@ -75,7 +71,7 @@ class Aglib
     
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.pos
-        stream = data.peekBig(32 - offs) << offs
+        stream = data.readBig(32 - offs, no) << offs
         result = lead(~stream)
         
         if result >= MAX_PREFIX_32
@@ -134,7 +130,8 @@ class Aglib
             mb = pb * (n + zmode) + mb - ((pb * mb) >> QBSHIFT)
             
             # update mean tracking
-            mb = N_MEAN_CLAMP_VAL if n > N_MAX_MEAN_CLAMP
+            if n > N_MAX_MEAN_CLAMP
+                mb = N_MEAN_CLAMP_VAL
             
             zmode = 0
             

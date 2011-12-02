@@ -119,7 +119,7 @@ class BitBuffer
     TWO_24 = Math.pow(2, 24)
     TWO_16 = Math.pow(2, 16)
     TWO_8  = Math.pow(2, 8)
-    readBig: (bits) ->
+    readBig: (bits, advance) ->
         a = (@data[@offset + 0] * TWO_32) +
             (@data[@offset + 1] * TWO_24) +
             (@data[@offset + 2] * TWO_16) +
@@ -129,7 +129,7 @@ class BitBuffer
         a = (a % Math.pow(2, 40 - @pos))
         a = (a / Math.pow(2, 40 - @pos - bits))
         
-        @advance(bits)
+        @advance(bits) if advance isnt false
         return a << 0
     
     read: (bits) ->
@@ -157,11 +157,6 @@ class BitBuffer
         @advance(1)
         return bits
     
-    peekBig: (bits) ->
-        v = @readBig(bits)
-        @rewind(bits)
-        return v
-    
     advance: (bits) ->
         @pos += bits
         @offset += (@pos >> 3)
@@ -170,7 +165,7 @@ class BitBuffer
     rewind: (bits) ->
         @advance(-bits)
     
-    align: () ->
+    align: ->
         @advance(8 - @pos) if @pos != 0
     
     copy: ->
