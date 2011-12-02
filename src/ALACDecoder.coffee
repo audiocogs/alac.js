@@ -72,7 +72,7 @@ class ALACDecoder
             
         return ALAC.errors.noError
         
-    decode: (data, offset, samples, channels) ->
+    decode: (data, samples, channels) ->
         unless channels > 0
             console.log "Requested less than a single channel"
             return [ALAC.errors.paramError]
@@ -84,7 +84,6 @@ class ALACDecoder
         coefsV = new Int16Array(32)
         output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
         
-        offset *= 8
         status = ALAC.errors.noError
         
         while status is ALAC.errors.noError
@@ -267,7 +266,7 @@ class ALACDecoder
                         status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
-                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)...")
+                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 1)...")
                             return status
                         
                         if modeU == 0

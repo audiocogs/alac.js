@@ -45,7 +45,7 @@ class AuroraALACDecoder
         
         if @decoder
             while (@bitstream.available(8) && buffer.final) || @bitstream.available(4096 << 6) # TODO: Number picked by my behind
-                out = @decoder.decode(@bitstream, 0, @metadata.format.framesPerPacket, @metadata.format.channelsPerFrame);
+                out = @decoder.decode(@bitstream, @metadata.format.framesPerPacket, @metadata.format.channelsPerFrame);
                 
                 if out[0] != 0
                     console.log("Error in ALAC (#{out[0]})"); debugger
