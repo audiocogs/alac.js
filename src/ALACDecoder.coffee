@@ -46,7 +46,7 @@ class ALACDecoder
             
         if data.remaining() < 24
             console.log "Cookie too short"
-            return ALAC.errors.paramError
+            return [ALAC.errors.paramError]
         
         @config =
             frameLength: data.readUInt32()
@@ -75,7 +75,7 @@ class ALACDecoder
     decode: (data, offset, samples, channels) ->
         unless channels > 0
             console.log "Requested less than a single channel"
-            return ALAC.errors.paramError
+            return [ALAC.errors.paramError]
         
         @activeElements = 0
         channelIndex = 0
@@ -100,13 +100,19 @@ class ALACDecoder
                     
                     # read the 12 unused header bits
                     unused = data.read(12)
-                    return ALAC.errors.paramError unless unused is 0
+                    
+                    unless unused == 0
+                        console.log("Unused part of header does not contain 0, it should")
+                        return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = data.read(4)
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x3
-                    return ALAC.errors.paramError if bytesShifted is 3
+                    
+                    if bytesShifted == 3
+                        console.log("Bytes are shifted by 3, they shouldn't be")
+                        return [ALAC.errors.paramError]
                     
                     shift = bytesShifted * 8
                     escapeFlag = headerByte & 0x1
@@ -205,7 +211,7 @@ class ALACDecoder
                     
                     unless unusedHeader == 0
                         console.log("Error! Unused header is silly")
-                        return ALAC.errors.paramError
+                        return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = data.read(4)
@@ -215,7 +221,7 @@ class ALACDecoder
                     
                     if bytesShifted == 3
                         console.log("Moooom, the reference said that bytes shifted couldn't be 3!")
-                        return ALAC.errors.paramError
+                        return [ALAC.errors.paramError]
                     
                     escapeFlag = headerByte & 0x01
                     chanBits = @config.bitDepth - (bytesShifted * 8) + 1
@@ -336,7 +342,7 @@ class ALACDecoder
                     
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
-                    return ALAC.errors.paramError
+                    return [ALAC.errors.paramError]
                     
                 when ID_DSE
                     console.log("Data Stream element, ignoring")
@@ -357,7 +363,8 @@ class ALACDecoder
                     # skip the data bytes
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return ALAC.errors.paramError
+                        console.log("My first overrun")
+                        return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
                     
@@ -372,7 +379,8 @@ class ALACDecoder
                         
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return ALAC.errors.paramError
+                        console.log("Another overrun")
+                        return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
                     
@@ -381,7 +389,7 @@ class ALACDecoder
                     
                 else
                     console.log("Error in frame")
-                    return ALAC.errors.paramError
+                    return [ALAC.errors.paramError]
             
             if channelIndex >= channels
                 console.log("Channel Index is high:", data.pos - 0)
