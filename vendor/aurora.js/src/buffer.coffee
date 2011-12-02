@@ -313,11 +313,6 @@ class Stream
         return result
     
 
-TWO_32 = Math.pow(2, 32)
-TWO_24 = Math.pow(2, 24)
-TWO_16 = Math.pow(2, 16)
-TWO_8  = Math.pow(2, 8)
-
 class Bitstream
     constructor: (@stream) ->
         @bitPosition = 0
@@ -350,43 +345,30 @@ class Bitstream
         return this
     
     readBig: (bits) ->
-        a = @stream.peekUInt8(0) * TWO_32 +
-            @stream.peekUInt8(1) * TWO_24 +
-            @stream.peekUInt8(2) * TWO_16 +
-            @stream.peekUInt8(3) * TWO_8 +
-            @stream.peekUInt8(4) + 
+        a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
         a = (a % Math.pow(2, 40 - @pos))
-        a = (a / Math.pow(2, 40 - @pos - bits))
         
         this.advance(bits)
         
-        return ((a << 32 - bits) >> bits)
+        return (a / Math.pow(2, 40 - @pos - bits))
     
     peekBig: (bits) ->
-        a = @stream.peekUInt8(0) * TWO_32 +
-            @stream.peekUInt8(1) * TWO_24 +
-            @stream.peekUInt8(2) * TWO_16 +
-            @stream.peekUInt8(3) * TWO_8 +
-            @stream.peekUInt8(4) + 
+        a = @stream.peekUInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
         a = (a % Math.pow(2, 40 - @pos))
-        a = (a / Math.pow(2, 40 - @pos - bits))
         
-        return (a << 0)
+        return (a / Math.pow(2, 40 - @pos - bits))
     
     read: (bits) ->
-        a = (@stream.peekUInt8(0) << 16) +
-            (@stream.peekUInt8(1) <<  8) +
-            (@stream.peekUInt8(2) <<  0)
+        a = @stream.peekUInt32(0)
         
         this.advance(bits)
         
-        return (((a << @pos) & 0xFFFF) >>> (24 - bits))
+        return (((a << @pos) & 0xFFFFFF) >>> (32 - bits))
     
     readSmall: (bits) ->
-        a = (@stream.peekUInt8(0) << 8) +
-            (@stream.peekUInt8(1) << 0)
+        a = @stream.peekUInt16(0)
         
         this.advance(bits)
         
