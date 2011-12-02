@@ -5,6 +5,7 @@ class Buffer
         @timestamp = null
         @duration  = null
         
+        @final = false
         @discontinuity = false
     
     @allocate: (size) ->
@@ -16,6 +17,7 @@ class Buffer
         buffer.timestamp = @timestamp
         buffer.duration = @duration
         
+        buffer.final = @final
         buffer.discontinuity = @discontinuity
     
     slice: (position, length) ->
@@ -98,6 +100,14 @@ class Stream
     constructor: (@list) ->
         @localOffset = 0; @offset = 0
     
+    copy: () ->
+        result = new Stream(@list.copy)
+        
+        result.localOffset = @localOffset
+        result.offset = @offset
+        
+        return result
+    
     available: (bytes) ->
         @list.availableBytes > bytes
     
@@ -106,9 +116,6 @@ class Stream
         
         while @list.first && (@localOffset >= @list.first.length)
             @localOffset -= @list.shift().length
-        
-        unless @list.first
-            console.log("Local Offset: #{@localOffset}")
         
         return this
     
@@ -306,8 +313,97 @@ class Stream
         return result
     
 
+TWO_32 = Math.pow(2, 32)
+TWO_24 = Math.pow(2, 24)
+TWO_16 = Math.pow(2, 16)
+TWO_8  = Math.pow(2, 8)
+
+class Bitstream
+    constructor: (@stream) ->
+        @bitPosition = 0
+    
+    copy: () ->
+        result = new Bitstream(@stream.copy())
+        
+        result.bitPosition = @bitPosition
+        
+        return result
+    
+    available: (bits) ->
+        return @stream.available((bits + 8 - @bitPosition) / 8)
+    
+    advance: (bits) ->
+        @bitPosition += bits
+        
+        @stream.advance(@bitPosition >> 3)
+        
+        @bitPosition = @bitPosition & 7
+        
+        return this
+    
+    align: ->
+        unless @bitPosition == 0
+            @bitPosition = 0
+            
+            @stream.advance(1)
+        
+        return this
+    
+    readBig: (bits) ->
+        a = @stream.peekUInt8(0) * TWO_32 +
+            @stream.peekUInt8(1) * TWO_24 +
+            @stream.peekUInt8(2) * TWO_16 +
+            @stream.peekUInt8(3) * TWO_8 +
+            @stream.peekUInt8(4) + 
+        
+        a = (a % Math.pow(2, 40 - @pos))
+        a = (a / Math.pow(2, 40 - @pos - bits))
+        
+        this.advance(bits)
+        
+        return ((a << 32 - bits) >> bits)
+    
+    peekBig: (bits) ->
+        a = @stream.peekUInt8(0) * TWO_32 +
+            @stream.peekUInt8(1) * TWO_24 +
+            @stream.peekUInt8(2) * TWO_16 +
+            @stream.peekUInt8(3) * TWO_8 +
+            @stream.peekUInt8(4) + 
+        
+        a = (a % Math.pow(2, 40 - @pos))
+        a = (a / Math.pow(2, 40 - @pos - bits))
+        
+        return (a << 0)
+    
+    read: (bits) ->
+        a = (@stream.peekUInt8(0) << 16) +
+            (@stream.peekUInt8(1) <<  8) +
+            (@stream.peekUInt8(2) <<  0)
+        
+        this.advance(bits)
+        
+        return (((a << @pos) & 0xFFFF) >>> (24 - bits))
+    
+    readSmall: (bits) ->
+        a = (@stream.peekUInt8(0) << 8) +
+            (@stream.peekUInt8(1) << 0)
+        
+        this.advance(bits)
+        
+        return (((a << @pos) & 0xFF) >>> (16 - bits))
+    
+    readOne: ->
+        a = @stream.peekUInt8(0)
+        
+        this.advance(1)
+        
+        return (a >>> (7 - @pos)) & 0x01
+    
+
 window.Aurora = {} unless window.Aurora
 
 window.Aurora.Buffer = Buffer
 window.Aurora.BufferList = BufferList
+
 window.Aurora.Stream = Stream
+window.Aurora.Bitstream = Bitstream

@@ -18,31 +18,34 @@
         }
       }
       
-      var cookieTest = {
+      var audioTest = {
         send: function () {
-          console.log("Cookie Bus: ", arguments)
-        }
-      }
-      
-      var dataTest = {
-        send: function () {
-          console.log("Data Bus: ", arguments)
+          console.log("Audio Bus: ", arguments)
         }
       }
       
       var httpSource = new Aurora.HTTPSource("Source")
       var cafDemuxer = new Aurora.CAFDemuxer("Demuxer")
+      var alacDecoder = new Aurora.ALACDecoder("Decoder")
       
       httpSource.url = "eod-begin.caf"
+      // httpSource.url = "02 - End of Daylight.caf"
+      // httpSource.url = "planets.caf"
       
       httpSource.messagebus = bus
       cafDemuxer.messagebus = bus
+      alacDecoder.messagebus = bus
       
       httpSource.outputs.data = cafDemuxer.inputs.data
       
-      cafDemuxer.outputs.cookie = cookieTest
-      cafDemuxer.outputs.data = dataTest
+      cafDemuxer.outputs.metadata = alacDecoder.inputs.metadata
+      cafDemuxer.outputs.cookie = alacDecoder.inputs.cookie
+      cafDemuxer.outputs.data = alacDecoder.inputs.data
       
+      alacDecoder.outputs.audio = audioTest
+      
+      alacDecoder.start()
+      cafDemuxer.start()
       httpSource.start()
     </script>
 </body>

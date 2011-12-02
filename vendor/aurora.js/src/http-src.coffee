@@ -96,9 +96,11 @@ class HTTPSource
         onLoad = (event) =>
             buffer = new Buffer(new Uint8Array(@xhr.response))
             
-            @outputs.data.send(buffer)
-            
             @offset += buffer.length
+            
+            buffer.final = true if @offset == @length
+            
+            @outputs.data.send(buffer)
             
             @inflight = false
             
@@ -131,7 +133,7 @@ class HTTPSource
         @xhr.open("GET", @url, true)
         
         @xhr.responseType = "arraybuffer"
-        @xhr.setRequestHeader("Range", "bytes=#{@offset}-#{if @offset + @chunkSize > @length then @length else @offset + @chunkSize}");
+        @xhr.setRequestHeader("Range", "bytes=#{@offset}-#{Math.min(@offset + @chunkSize, @length)}");
         
         @xhr.send(null)
         

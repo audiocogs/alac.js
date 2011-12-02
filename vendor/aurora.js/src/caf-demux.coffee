@@ -1,11 +1,8 @@
 class CAFDemuxer
     constructor: (@name) ->
-        @chunkSize = (1 << 20)
-        
         @inputs = {
             data:
                 send: (buffer) => this.enqueueBuffer(buffer)
-                finished: () => this.finished()
                 mode: "Passive"
         }
         
@@ -58,6 +55,18 @@ class CAFDemuxer
             if @metadata.desc.formatID != 'alac'
                 console.log("Right now we only support Apple Lossless audio"); debugger
             
+            @outputs.metadata.send({
+                format:
+                    format:             "Apple Lossless"
+                    samplingFrequency:  @metadata.desc.sampleRate
+                    bytesPerPacket:     @metadata.desc.bytesPerPacket
+                    framesPerPacket:    @metadata.desc.framesPerPacket
+                    channelsPerFrame:   @metadata.desc.channelsPerFrame
+                    bitsPerChannel:     @metadata.desc.bitsPerChannel
+            })
+        
+        if !@metadata && buffer.final
+            console.log("Not enough data in file for CAF header"); debugger
         
         while (@headerCache && @stream.available(1)) || @stream.available(13)
             unless @headerCache
@@ -67,8 +76,6 @@ class CAFDemuxer
                     size:               @stream.readUInt32()
                 }
             
-            console.log(@headerCache.type, @headerCache.size, @stream.localOffset)
-            
             if @headerCache.oversize
                 console.log("Holy Shit, an oversized file, not supported in JS"); debugger
             
@@ -77,7 +84,11 @@ class CAFDemuxer
             switch @headerCache.type
                 when 'kuki'
                     if @stream.available(@headerCache.size)
-                        @outputs.cookie.send(@stream.readBuffer(@headerCache.size))
+                        buffer = @stream.readBuffer(@headerCache.size)
+                        
+                        buffer.final = true
+                        
+                        @outputs.cookie.send(buffer)
                         
                         @headerCache = null
                     else
@@ -85,13 +96,13 @@ class CAFDemuxer
                 when 'data'
                     buffer = @stream.readSingleBuffer(@headerCache.size)
                     
-                    @outputs.data.send(buffer)
-                    
                     @headerCache.size -= buffer.length
                     
                     if @headerCache.size <= 0
                         @headerCache = null
+                        buffer.final = true
                     
+                    @outputs.data.send(buffer)
                 else
                     if @stream.available(@headerCache.size)
                         @stream.advance(@headerCache.size)
@@ -101,6 +112,8 @@ class CAFDemuxer
                         return
                 
             
+        
+        this.finished() if buffer.final
         
         return
     

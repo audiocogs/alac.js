@@ -57,7 +57,7 @@ class Aglib
             result = (stream >>> (32 - MAX_DATATYPE_BITS_16))
             
         else
-            data.advance(bitsInPrefix + 1 + k)
+            data.advance(bitsInPrefix + k)
             
             stream <<= (bitsInPrefix + 1)
             v = (stream >>> (32 - k))
@@ -65,8 +65,10 @@ class Aglib
             
             if v < 2
                 result -= (v - 1)
-                data.rewind(1)
-
+            else
+                data.advance(1)
+            
+        
         return result
     
     dyn_get_32 = (data, m, k, maxbits) ->
