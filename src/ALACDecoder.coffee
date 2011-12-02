@@ -91,6 +91,8 @@ class ALACDecoder
             
             tag = data.readSmall(3)
             
+            console.log(tag)
+            
             switch tag
                 when ID_SCE, ID_LFE  
                     # Mono / LFE channel
