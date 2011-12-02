@@ -59,8 +59,8 @@ class CAFDemuxer
                 console.log("Right now we only support Apple Lossless audio"); debugger
             
         
-        while @headerCache || @stream.available(12)
-            if !@headerCache
+        while (@headerCache && @stream.available(1)) || @stream.available(13)
+            unless @headerCache
                 @headerCache = {
                     type:               @stream.readString(4)
                     oversize:           @stream.readUInt32() != 0
@@ -80,30 +80,25 @@ class CAFDemuxer
                         @outputs.cookie.send(@stream.readBuffer(@headerCache.size))
                         
                         @headerCache = null
+                    else
+                        return
                 when 'data'
-                    while @headerCache # Fixme into no-copy version
-                        return unless @list.first
-                        
-                        if @stream.localOffset + @headerCache.size > @list.first.length
-                            buffer = @list.shift()
-                            
-                            @outputs.data.send(buffer.slice(@stream.localOffset))
-                            
-                            @headerCache.size -= buffer.length - @stream.localOffset; @stream.localOffset = 0
-                        else
-                            buffer = @list.first
-                            
-                            @outputs.data.send(buffer.slice(@stream.localOffset, @headerCache.size))
-                            
-                            @stream.localOffset += @headerCache.size; @headerCache = null
-                        
+                    buffer = @stream.readSingleBuffer(@headerCache.size)
+                    
+                    @outputs.data.send(buffer)
+                    
+                    @headerCache.size -= buffer.length
+                    
+                    if @headerCache.size <= 0
+                        @headerCache = null
                     
                 else
                     if @stream.available(@headerCache.size)
                         @stream.advance(@headerCache.size)
                         
                         @headerCache = null
-                    
+                    else
+                        return
                 
             
         

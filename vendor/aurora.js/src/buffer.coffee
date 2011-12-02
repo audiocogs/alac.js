@@ -18,6 +18,13 @@ class Buffer
         
         buffer.discontinuity = @discontinuity
     
+    slice: (position, length) ->
+        if position == 0 && length >= @length
+            return this
+        else
+            return new Buffer(@data.subarray(position, length))
+        
+    
 
 class BufferList
     constructor: () ->
@@ -97,10 +104,11 @@ class Stream
     advance: (bytes) ->
         @localOffset += bytes; @offset += bytes
         
-        while @localOffset > @list.first.length
-            @localOffset -= @list.first.length
-            
-            @list.shift()
+        while @list.first && (@localOffset >= @list.first.length)
+            @localOffset -= @list.shift().length
+        
+        unless @list.first
+            console.log("Local Offset: #{@localOffset}")
         
         return this
     
@@ -246,10 +254,7 @@ class Stream
     readInt8: () ->
         a0 = ((@list.first.data[@localOffset] << 24) >> 24)
         
-        @localOffset += 1; @offset += 1
-        
-        if @localOffset == @list.first.length
-            @localOffset = 0; @buffers.shift()
+        this.advance(1)
         
         return a0
     
@@ -288,23 +293,15 @@ class Stream
         
         to = result.data
         
-        offset = 0
-        buffer = @list.first.data
+        for i in [0 ... length]
+            to[i] = this.readUInt8()
         
-        until length - offset < buffer.length - @localOffset
-            for i in [@localOffset ... buffer.length] by 1
-                to[offset - @localOffset + i] = buffer[i]
-            
-            offset += buffer.length - @localOffset
-            
-            this.advance(buffer.length - @localOffset)
-            
-            buffer = @list.first.data; @localOffset = 0
+        return result
+    
+    readSingleBuffer: (length) ->
+        result = @list.first.slice(@localOffset, length)
         
-        for i in [@localOffset ... @localOffset + length - offset] by 1
-            to[offset - @localOffset + i] = buffer[i]
-        
-        @localOffset = length - offset
+        this.advance(result.length)
         
         return result
     
