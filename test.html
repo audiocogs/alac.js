@@ -6,124 +6,44 @@
 <body>
     <p>Open your favorite JS console! :)</p>
     <p>Make sure you run build.sh after every change.</p>
+    
+    <script src="lib/aurora.js"></script>
     <script src="lib/alac.js"></script>
     <script src="sink.js"></script>
+    
     <script>
-        // Load the CAF file
-        var xhr = new XMLHttpRequest();
-        // xhr.open("GET", "eod-begin.caf", true);
-        // xhr.open("GET", "out.caf", true);
-        xhr.open("GET", "planets.caf", true);
-        //xhr.open("GET", "02 - End of Daylight.caf", true);
-        
-        xhr.responseType = "arraybuffer";
-        
-        xhr.onload = function() {
-            var file = new Uint8Array(xhr.response);
-            var data = new Data(file);
-            
-            if (data.readString(4) !== 'caff')
-                return console.log("Invalid CAF, does not begin with 'caff'");
-                
-            var container = {
-                fileVersion: data.readUInt16(),
-                fileFlags: data.readUInt16()
-            }
-            
-            if (data.readString(4) !== 'desc')
-                return console.log("Invalid CAF, header is not followed by 'desc'");
-                
-            if (data.readUInt64() !== 32)
-                return console.log("Invalid 'desc' size, should be 32");
-            
-            var format = {
-                sampleRate: data.readDouble(),
-                formatID: data.readString(4),
-                formatFlags: data.readUInt32(),
-                bytesPerPacket: data.readUInt32(),
-                framesPerPacket: data.readUInt32(),
-                channelsPerFrame: data.readUInt32(),
-                bitsPerChannel: data.readUInt32()
-            }
-            
-            // console.log('format', format);
-            
-            if (format.formatID !== 'alac')
-                return console.log("CAF does not contain Apple Lossless audio");
-            
-            while (data.pos < data.length) {
-                var type = data.readString(4);
-                var size = data.readUInt64();
-                
-                switch (type) {
-                    case 'kuki':
-                        console.log("Found cookie, initializing decoder");
-                        
-                        var decoder = new ALACDecoder(data.slice(data.pos, data.pos + size));
-                        break;
-                        
-                    case 'data':
-                        console.log("Found data");
-                        
-                        var dataOffset = data.pos + 4,
-                            dataSize = data.pos + size - 8, 
-                            status = 0;
-                        
-                        var bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
-                        var outputs = [], times = 0;
-                        
-                        while (status == 0) {
-                          // console.log("Packet", ++times);
-                          
-                          var out = decoder.decode(bitbuffer, 0, format.framesPerPacket, format.channelsPerFrame);
-                          
-                          if (out[1]) {
-                            var array = new Int16Array(out[1]);
-                            outputs.push(array);
-                          }
-                          
-                          status = out[0];
-                        }
-                        
-                        if (outputs.length > 0) {
-                            eod = new Float32Array(outputs.length * outputs[0].length);
-                        
-                            for (var i = 0; i < outputs.length; i++) {
-                              for (var j = 0; j < outputs[0].length; j++) {
-                                eod[i * outputs[0].length + j] = outputs[i][j] / Math.pow(2, 15);
-                              }
-                            }
-                        
-                            var kthxbai = 0;
-                        
-                            var sink = Sink(function(buffer, channelCount){
-                              for (var i = 0; i < buffer.length; i++){
-                                buffer[i] = eod[kthxbai + i];
-                              }
-                          
-                              kthxbai += buffer.length;
-                          
-                              if (kthxbai > eod.length) {
-                                return sink.kill();
-                              }
-                            }, format.channelsPerFrame, null, format.sampleRate);
-                        }
-                        else {
-                            console.log("ERROR!");
-                        }
-                        
-                        break;
-                        
-                    default:
-                        console.log("Found random type, '" + type + "'");
-                        break;
-                }
-                
-                data.pos += size;
-            }
+      var bus = {
+        send: function () {
+          console.log("Message Bus: ", arguments)
         }
-        
-        xhr.send(null);
+      }
+      
+      var cookieTest = {
+        send: function () {
+          console.log("Cookie Bus: ", arguments)
+        }
+      }
+      
+      var dataTest = {
+        send: function () {
+          console.log("Data Bus: ", arguments)
+        }
+      }
+      
+      var httpSource = new Aurora.HTTPSource("Source")
+      var cafDemuxer = new Aurora.CAFDemuxer("Demuxer")
+      
+      httpSource.url = "eod-begin.caf"
+      
+      httpSource.messagebus = bus
+      cafDemuxer.messagebus = bus
+      
+      httpSource.outputs.data = cafDemuxer.inputs.data
+      
+      cafDemuxer.outputs.cookie = cookieTest
+      cafDemuxer.outputs.data = dataTest
+      
+      httpSource.start()
     </script>
 </body>
 </html>
