@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ALAC</title>
+</head>
+<body>
+    <p>Open your favorite JS console! :)</p>
+    <p>Make sure you run build.sh after every change.</p>
+    <script src="lib/alac.js"></script>
+    <script src="sink.js"></script>
+    <script>
+        // Load the CAF file
+        var xhr = new XMLHttpRequest();
+        //xhr.open("GET", "emerson/1-07 Scherzo_ Allegro vivo.caf", true);
+        // xhr.open("GET", "eod-begin.caf", true);
+        // xhr.open("GET", "out.caf", true);
+        xhr.open("GET", "dumka.m4a", true);
+        //xhr.open("GET", "02 - End of Daylight.caf", true);
+        
+        xhr.responseType = "arraybuffer";
+                
+        xhr.onload = function() {
+            console.log('loaded file.');      
+            var file = new Uint8Array(xhr.response);
+            var data = new Data(file);
+            
+            var format = {},
+                cookie = null,
+                audioData = null;
+            
+            // Demux
+            while(data.pos < data.length) {
+                var len = data.readUInt32(),
+                    type = data.readString(4);
+                    
+                switch (type) {
+                    case 'ftyp':
+                        if (data.readString(4) != 'M4A ') 
+                            throw 'Not an M4A file.';
+
+                        data.pos += len - 12;
+                        break;
+                    
+                    // traverse into these types - they contain sub atoms
+                    case 'moov':
+                    case 'trak':
+                    case 'mdia':
+                    case 'minf':
+                    case 'stbl':
+                        continue;
+                    
+                    // skip these types    
+                    case 'mvhd':
+                    case 'udta':
+                    case 'elst':
+                    case 'iods':
+                    case 'tkhd':
+                    case 'edts':
+                    case 'mdhd':
+                    case 'hdlr': // version, flags, manufacturer, etc.
+                    case 'smhd':
+                    case 'dinf':
+                    case 'stsc':
+                    case 'stco':
+                    case 'stts': // time to sample
+                    case 'stsz': // something...
+                    case 'free':
+                        data.pos += len - 8;
+                        break;
+                        
+                    case 'stsd':
+                        var maxpos = data.pos + len - 8;
+                        
+                        // version and flags
+                        data.pos += 4;
+                        
+                        var numEntries = data.readUInt32();
+                        if (numEntries != 1) 
+                            throw "Only expecting one entry in sample description atom!";
+                        
+                        //for i in [0...numEntries]
+                        
+                        data.pos += 4; // size
+                        
+                        format.formatID = data.readString(4);
+                        if (format.formatID != 'alac')
+                            throw 'ALAC data not found.';
+                        
+                        data.pos += 6; // reserved
+                        
+                        if (data.readUInt16() != 1)
+                            throw "Unknown version.";
+                            
+                        // skip revision level and vendor
+                        data.pos += 6;
+                        data.pos += 2; // reserved
+                        
+                        format.channelsPerFrame = data.readUInt16();
+                        format.bitsPerChannel = data.readUInt16();
+                        
+                        // skip compression id and packet size
+                        data.pos += 4;
+                        
+                        format.sampleRate = data.readUInt16();
+                        data.pos += 2;
+                        
+                        // cookie
+                        cookie = data.slice(data.pos, maxpos)
+                        data.pos = maxpos;
+                        
+                        break;
+                        
+                    case 'mdat':
+                        audioData = data.slice(data.pos, data.pos + len);
+                        data.pos += len;
+                        break;
+                        
+                     default:
+                        console.log('Unknown chunk type:', type);
+                        return;
+                }
+            }
+            
+            if (!cookie || !audioData) {
+                throw 'Cookie and audio data not found.';
+            }
+            
+            // Decode
+            var decoder = new ALACDecoder(cookie);
+            var bitbuffer = new BitBuffer(audioData);
+            
+            console.log('format', format);
+            console.time("decode");
+            
+            var outputs = [], status = 0;
+            
+            while (status === 0) {
+              // console.log("Packet", ++times);
+              
+              var out = decoder.decode(bitbuffer, 0, decoder.config.frameLength, format.channelsPerFrame);
+              
+              if (out[1]) {
+                var array = new Int16Array(out[1]);
+                outputs.push(array);
+              }
+              
+              status = out[0];
+              delete out;
+            }
+            
+            console.timeEnd('decode');
+            return;
+            
+            if (outputs.length > 0) {
+                eod = new Float32Array(outputs.length * outputs[0].length);
+            
+                for (var i = 0; i < outputs.length; i++) {
+                  for (var j = 0; j < outputs[0].length; j++) {
+                    eod[i * outputs[0].length + j] = outputs[i][j] / Math.pow(2, 15);
+                  }
+                }
+            
+                var kthxbai = 0;
+            
+                var sink = Sink(function(buffer, channelCount){
+                  for (var i = 0; i < buffer.length; i++){
+                    buffer[i] = eod[kthxbai + i];
+                  }
+              
+                  kthxbai += buffer.length;
+              
+                  if (kthxbai > eod.length) {
+                    return sink.kill();
+                  }
+                }, format.channelsPerFrame, null, format.sampleRate);
+            }
+            else {
+                console.log("ERROR!");
+            }
+        }
+        
+        xhr.send(null);
+    </script>
+</body>
+</html>
