@@ -75,6 +75,11 @@ class CAFDemuxer
                     oversize:           @stream.readUInt32() != 0
                     size:               @stream.readUInt32()
                 }
+                
+                if @headerCache.type == 'data' # Silly-Hack
+                    @stream.advance(4)
+                    @headerCache.size -= 4
+                
             
             if @headerCache.oversize
                 console.log("Holy Shit, an oversized file, not supported in JS"); debugger
