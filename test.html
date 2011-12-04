@@ -23,8 +23,8 @@
       var alacDecoder = new Aurora.ALACDecoder("Decoder")
       var buffer = new Aurora.Queue("Buffer")
       
-      httpSource.url = "eod-begin.caf"
-      // httpSource.url = "02 - End of Daylight.caf"
+      // httpSource.url = "eod-begin.caf"
+      httpSource.url = "02 - End of Daylight.caf"
       // httpSource.url = "planets.caf"
       
       httpSource.messagebus = bus
@@ -44,16 +44,13 @@
         
         var output = buffer.outputs.contents
         
-        var frame = new Int16Array(output.receive().data), frameOffset = 0
+        var f = output.receive()
+        var frame = new Int16Array(f.data.buffer), frameOffset = 0
         
         var sink = Sink(function(buffer, channelCount) {
           var bufferOffset = 0
           
-          if (!frame) {
-            return
-          }
-          
-          while (bufferOffset < buffer.length) {
+          while (frame && bufferOffset < buffer.length) {
             for (var i = 0; i < Math.min(frame.length - frameOffset, buffer.length - bufferOffset); i++) {
               buffer[bufferOffset + i] = frame[frameOffset + i] / 0x8000
             }
@@ -61,7 +58,13 @@
             bufferOffset += i, frameOffset += i
             
             if (frameOffset == frame.length) {
-              frame = new Int16Array(output.receive().data), frameOffset = 0
+              f = output.receive()
+              
+              if (f) {
+                frame = new Int16Array(f.data.buffer), frameOffset = 0
+              } else {
+                frame = null, frameOffset = 0
+              }
             }
           }
         }, 2, null, 44100);
