@@ -23,8 +23,8 @@
       var alacDecoder = new Aurora.ALACDecoder("Decoder")
       var buffer = new Aurora.Queue("Buffer")
       
-      httpSource.url = "eod-begin.caf"
-      // httpSource.url = "02 - End of Daylight.caf"
+      // httpSource.url = "eod-begin.caf"
+      httpSource.url = "02 - End of Daylight.caf"
       // httpSource.url = "planets.caf"
       
       httpSource.messagebus = bus
@@ -67,7 +67,7 @@
               }
             }
           }
-        }, 2, null, 44100);
+        }, 2, 10 * 44100, 44100);
         
         sink.on('error', function(e){ console.log(e) })
       }

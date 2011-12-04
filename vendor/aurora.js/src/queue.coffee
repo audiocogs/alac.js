@@ -30,10 +30,10 @@ class Queue
     enqueueBuffer: (buffer) ->
         @buffers.push(buffer)
         
-        console.log(@buffers.length) if @buffers.length % 20 == 0
+        console.log(@buffers.length) if @buffers.length % 64 == 0
         
         if @buffering
-            if @buffers.length >= @highWaterMark || buffer.final
+            if @buffers.length >= @highwaterMark || buffer.final
                 @onHighwaterMark(@buffers.length)
                 
                 @buffering = false
@@ -45,7 +45,7 @@ class Queue
         result = @buffers.shift()
         
         unless @buffering
-            if @buffers.length < @lowWaterMark
+            if @buffers.length < @lowwaterMark
                 @onLowwaterMark(@buffers.length)
             
         
