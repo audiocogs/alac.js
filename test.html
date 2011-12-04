@@ -55,7 +55,7 @@
           
           while (bufferOffset < buffer.length) {
             for (var i = 0; i < Math.min(frame.length - frameOffset, buffer.length - bufferOffset); i++) {
-              buffer[bufferOffset + i] = frame[frameOffset + i] / 0x7FFF
+              buffer[bufferOffset + i] = frame[frameOffset + i] / 0x8000
             }
             
             bufferOffset += i, frameOffset += i
