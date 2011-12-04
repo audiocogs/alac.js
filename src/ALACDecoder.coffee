@@ -91,6 +91,8 @@ class ALACDecoder
         while status == ALAC.errors.noError && end == false
             pb = @config.pb
             
+            return [status, output] unless data.available(3)
+            
             tag = data.readSmall(3)
             
             switch tag

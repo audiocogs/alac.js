@@ -30,6 +30,8 @@ class Queue
     enqueueBuffer: (buffer) ->
         @buffers.push(buffer)
         
+        console.log(@buffers.length) if @buffers.length % 20 == 0
+        
         if @buffering
             if @buffers.length >= @highWaterMark || buffer.final
                 @onHighwaterMark(@buffers.length)
