@@ -347,39 +347,47 @@ class Bitstream
     readBig: (bits) ->
         a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
-        a = (a % Math.pow(2, 40 - @pos))
+        a = (a % Math.pow(2, 40 - @bitPosition))
+        a = (a / Math.pow(2, 40 - @bitPosition - bits))
         
         this.advance(bits)
         
-        return (a / Math.pow(2, 40 - @pos - bits))
+        return a
     
     peekBig: (bits) ->
         a = @stream.peekUInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
-        a = (a % Math.pow(2, 40 - @pos))
+        a = (a % Math.pow(2, 40 - @bitPosition))
+        a = (a / Math.pow(2, 40 - @bitPosition - bits))
         
-        return (a / Math.pow(2, 40 - @pos - bits))
+        return a
     
     read: (bits) ->
         a = @stream.peekUInt32(0)
         
+        a = (((a << @bitPosition) & 0xFFFFFFFF) >>> (32 - bits))
+        
         this.advance(bits)
         
-        return (((a << @pos) & 0xFFFFFFFF) >>> (32 - bits))
+        return a
     
     readSmall: (bits) ->
         a = @stream.peekUInt16(0)
         
+        a = (((a << @bitPosition) & 0xFFFF) >>> (16 - bits))
+        
         this.advance(bits)
         
-        return (((a << @pos) & 0xFFFF) >>> (16 - bits))
+        return a
     
-    readOne: ->
+    readOne: () ->
         a = @stream.peekUInt8(0)
+        
+        a = (((a << @bitPosition) & 0xFF) >>> 7)
         
         this.advance(1)
         
-        return (a >>> (7 - @pos)) & 0x01
+        return a
     
 
 window.Aurora = {} unless window.Aurora
