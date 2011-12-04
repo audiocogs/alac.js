@@ -227,18 +227,28 @@
                     case 'iods':
                     case 'tkhd':
                     case 'edts':
-                    case 'mdhd':
                     case 'hdlr': // version, flags, manufacturer, etc.
                     case 'smhd':
                     case 'dinf':
-                    case 'stsc':
-                    case 'stco':
+                    case 'stsc': // sample to chunk
+                    case 'stco': // chunk offset
                     case 'stts': // time to sample
-                    case 'stsz': // something...
+                    case 'stsz': // sample size
                     case '----': // some weird iTunes thing
                     case 'free':
                     case 'skip':
                         data.pos += len - 8;
+                        break;
+                        
+                    case 'mdhd':
+                        data.pos += 4; // version and flags
+                        data.pos += 8; // creation and modification dates
+                        var sampleRate = data.readUInt32(),
+                            duration = data.readUInt32();
+                            
+                        metadata.duration = duration / sampleRate * 1000;
+                        
+                        data.pos += 4; // language and quality
                         break;
                         
                     case 'stsd':
