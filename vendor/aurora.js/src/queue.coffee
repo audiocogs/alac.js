@@ -1,7 +1,5 @@
 class Queue
     constructor: (@name) ->
-        @chunkSize = (1 << 20)
-        
         @highwaterMark = 256
         @lowwaterMark = 64
         
@@ -15,14 +13,14 @@ class Queue
         
         @inputs = {
             contents:
-                send: (buffer) -> this.enqueueBuffer(buffer)
+                send: (buffer) => this.enqueueBuffer(buffer)
                 mode: "Passive"
             
         }
         
         @outputs = {
             contents:
-                receive: () -> this.dequeueBuffer()
+                receive: () => this.dequeueBuffer()
                 mode: "Pull"
             
         }
@@ -33,19 +31,23 @@ class Queue
         @buffers.push(buffer)
         
         if @buffering
-            if @buffer.length >= @highWaterMark
+            if @buffers.length >= @highWaterMark || buffer.final
                 @onHighwaterMark(@buffers.length)
                 
                 @buffering = false
-        else
-            if @buffer.length <= @lowWaterMark
-                @onLowwaterMark(@buffers.length)
             
         
         return this
     
     dequeueBuffer: () ->
-        return @buffers.shift()
+        result = @buffer.shift()
+        
+        unless @buffering
+            if @buffers.length < @lowWaterMark
+                @onLowwaterMark(@buffers.length)
+            
+        
+        return result
     
     start: () ->
         @status = "Started"

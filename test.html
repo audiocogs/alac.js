@@ -27,6 +27,7 @@
       var httpSource = new Aurora.HTTPSource("Source")
       var cafDemuxer = new Aurora.CAFDemuxer("Demuxer")
       var alacDecoder = new Aurora.ALACDecoder("Decoder")
+      var buffer = new Aurora.Queue("Buffer")
       
       httpSource.url = "eod-begin.caf"
       // httpSource.url = "02 - End of Daylight.caf"
@@ -42,8 +43,13 @@
       cafDemuxer.outputs.cookie = alacDecoder.inputs.cookie
       cafDemuxer.outputs.data = alacDecoder.inputs.data
       
-      alacDecoder.outputs.audio = audioTest
+      alacDecoder.outputs.audio = buffer.inputs.contents
       
+      buffer.onHighwaterMark = function () {
+        console.log("Hitting High-Water Mark! Aurora o'hoy!")
+      }
+      
+      buffer.start()
       alacDecoder.start()
       cafDemuxer.start()
       httpSource.start()
