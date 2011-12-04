@@ -40,7 +40,7 @@ class Queue
         return this
     
     dequeueBuffer: () ->
-        result = @buffer.shift()
+        result = @buffers.shift()
         
         unless @buffering
             if @buffers.length < @lowWaterMark

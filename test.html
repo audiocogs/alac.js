@@ -17,12 +17,6 @@
           console.log("Message Bus: ", arguments)
         }
       }
-
-      var audioTest = {
-        send: function () {
-          console.log("Audio Bus: ", arguments)
-        }
-      }
       
       var httpSource = new Aurora.HTTPSource("Source")
       var cafDemuxer = new Aurora.CAFDemuxer("Demuxer")
@@ -46,7 +40,32 @@
       alacDecoder.outputs.audio = buffer.inputs.contents
       
       buffer.onHighwaterMark = function () {
-        console.log("Hitting High-Water Mark! Aurora o'hoy!")
+        console.log("Hitting High-Water Mark, Aurora o'hoy! Lets start playing!")
+        
+        var output = buffer.outputs.contents
+        
+        var frame = new Int16Array(output.receive().data), frameOffset = 0
+        
+        var sink = Sink(function(buffer, channelCount) {
+          var bufferOffset = 0
+          
+          if (!frame) {
+            return
+          }
+          
+          while (bufferOffset < buffer.length) {
+            for (var i = 0; i < Math.min(frame.length - frameOffset, buffer.length - bufferOffset); i++) {
+              buffer[bufferOffset + i] = frame[frameOffset + i] / 0x7FFF
+            }
+            
+            bufferOffset += i, frameOffset += i
+            
+            if (frameOffset == frame.length) {
+              frame = new Int16Array(output.receive().data), frameOffset = 0
+            }
+          }
+        }, 2, null, 44100);
+        
       }
       
       buffer.start()
