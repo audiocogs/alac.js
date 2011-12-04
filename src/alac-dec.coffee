@@ -34,7 +34,7 @@ class AuroraALACDecoder
         return this
     
     setCookie: (buffer) ->
-        @decoder = new ALACDecoder(buffer.data)
+        @decoder = new ALACDecoder(buffer)
         
         this.enqueueBuffer(null)
         

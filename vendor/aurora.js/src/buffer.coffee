@@ -109,7 +109,7 @@ class Stream
         return result
     
     available: (bytes) ->
-        @list.availableBytes > bytes
+        @list.availableBytes - @localOffset >= bytes
     
     advance: (bytes) ->
         @localOffset += bytes; @offset += bytes
@@ -292,6 +292,14 @@ class Stream
         
         for i in [0 ... length]
             result.push(String.fromCharCode(this.readUInt8()))
+        
+        return result.join('')
+    
+    peekString: (length, offset) ->
+        result = []
+        
+        for i in [0 ... length]
+            result.push(String.fromCharCode(this.peekUInt8(offset + i)))
         
         return result.join('')
     

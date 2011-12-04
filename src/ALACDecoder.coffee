@@ -31,20 +31,22 @@ class ALACDecoder
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
-        data = new Data(@cookie)
-        atom = data.stringAt(4, 4)
+        list = new Aurora.BufferList(); list.push(@cookie)
+        
+        data = new Aurora.Stream(list)
+        atom = data.peekString(4, 4)
         
         if atom is 'frma'
             console.log "Skipping 'frma'"
             data.advance(12)
-        
-        atom = data.stringAt(4, 4)
+            atom = data.peekString(4, 4)
         
         if atom is 'alac'
             console.log "Skipping 'alac'"
             data.advance(12)
+            atom = data.peekString(4, 4)
             
-        if data.remaining() < 24
+        unless data.available(24)
             console.log "Cookie too short"
             return [ALAC.errors.paramError]
         
@@ -69,13 +71,14 @@ class ALACDecoder
         predictorBuffer = new ArrayBuffer(@config.frameLength * 4)
         @predictor = new Int32Array(predictorBuffer)
         @shiftBuffer = new Int16Array(predictorBuffer)
-            
-        return ALAC.errors.noError
-        
+    
     decode: (data, samples, channels) ->
         unless channels > 0
             console.log "Requested less than a single channel"
             return [ALAC.errors.paramError]
+        
+        
+        startOffset = data.offset()
         
         @activeElements = 0
         channelIndex = 0
@@ -91,7 +94,7 @@ class ALACDecoder
             
             tag = data.readSmall(3)
             
-            console.log("Tag: #{tag} (#{data.offset()})")
+            console.log("Tag: #{tag} (#{data.offset() - startOffset})")
             
             switch tag
                 when ID_SCE, ID_LFE  
@@ -207,7 +210,7 @@ class ALACDecoder
                     elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
                     
-                    console.log("Element Instance Tag: #{elementInstanceTag} (#{data.offset()})")
+                    console.log("Element Instance Tag: #{elementInstanceTag} (#{data.offset() - startOffset})")
                     
                     # read the 12 unused header bits
                     unusedHeader = data.read(12)
@@ -219,7 +222,7 @@ class ALACDecoder
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = data.readSmall(4)
                     
-                    console.log("Header Byte: #{headerByte} (#{data.offset()})")
+                    console.log("Header Byte: #{headerByte} (#{data.offset() - startOffset})")
                     
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x03
@@ -392,7 +395,7 @@ class ALACDecoder
                 when ID_END
                     data.align()
                     
-                    console.log("End (#{data.offset()})")
+                    console.log("End (#{data.offset() - startOffset})")
                     
                 else
                     console.log("Error in frame")
