@@ -27,6 +27,8 @@
       httpSource.url = "02 - End of Daylight.caf"
       // httpSource.url = "planets.caf"
       
+      httpSource.chunkSize = 128 * 1024
+      
       httpSource.messagebus = bus
       cafDemuxer.messagebus = bus
       alacDecoder.messagebus = bus
