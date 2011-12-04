@@ -365,14 +365,14 @@ class Bitstream
         
         this.advance(bits)
         
-        return (((a << @pos) & 0xFFFFFF) >>> (32 - bits))
+        return (((a << @pos) & 0xFFFFFFFF) >>> (32 - bits))
     
     readSmall: (bits) ->
         a = @stream.peekUInt16(0)
         
         this.advance(bits)
         
-        return (((a << @pos) & 0xFF) >>> (16 - bits))
+        return (((a << @pos) & 0xFFFF) >>> (16 - bits))
     
     readOne: ->
         a = @stream.peekUInt8(0)
