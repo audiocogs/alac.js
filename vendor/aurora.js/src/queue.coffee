@@ -34,7 +34,7 @@ class Queue
         
         if @buffering
             if @buffers.length >= @highwaterMark || buffer.final
-                @onHighwaterMark(@buffers.length)
+                @onHighwaterMark(@buffers.length) if @onHighwaterMark
                 
                 @buffering = false
             
@@ -46,7 +46,7 @@ class Queue
         
         unless @buffering
             if @buffers.length < @lowwaterMark
-                @onLowwaterMark(@buffers.length)
+                @onLowwaterMark(@buffers.length) if @onLowwaterMark
             
         
         return result
