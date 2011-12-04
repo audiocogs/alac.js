@@ -122,7 +122,7 @@ class Stream
     readUInt32: () ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + 4
+        if buffer.length > @localOffset + 3
             a0 = buffer[@localOffset + 0]
             a1 = buffer[@localOffset + 1]
             a2 = buffer[@localOffset + 2]
@@ -140,7 +140,7 @@ class Stream
     peekUInt32: (offset = 0) ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + offset + 4
+        if buffer.length > @localOffset + offset + 3
             a0 = buffer[@localOffset + offset + 0]
             a1 = buffer[@localOffset + offset + 1]
             a2 = buffer[@localOffset + offset + 2]
@@ -156,7 +156,7 @@ class Stream
     readInt32: () ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + offset + 4
+        if buffer.length > @localOffset + offset + 3
             a0 = buffer[@localOffset + 0]
             a1 = buffer[@localOffset + 1]
             a2 = buffer[@localOffset + 2]
@@ -174,7 +174,7 @@ class Stream
     peekInt32: (offset = 0) ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + offset + 4
+        if buffer.length > @localOffset + offset + 3
             a0 = buffer[@localOffset + offset + 0]
             a1 = buffer[@localOffset + offset + 1]
             a2 = buffer[@localOffset + offset + 2]
@@ -190,7 +190,7 @@ class Stream
     readUInt16: () ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + 2
+        if buffer.length > @localOffset + 1
             a0 = buffer[@localOffset + 0]
             a1 = buffer[@localOffset + 1]
             
@@ -204,7 +204,7 @@ class Stream
     peekUInt16: (offset = 0) ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + offset + 2
+        if buffer.length > @localOffset + offset + 1
             a0 = buffer[@localOffset + offset + 0]
             a1 = buffer[@localOffset + offset + 1]
         else
@@ -216,7 +216,7 @@ class Stream
     readInt16: () ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + 2
+        if buffer.length > @localOffset + 1
             a0 = buffer[@localOffset + 0]
             a1 = buffer[@localOffset + 1]
         else
@@ -228,7 +228,7 @@ class Stream
     peekInt16: (offset = 0) ->
         buffer = @list.first.data
         
-        if buffer.length > @localOffset + offset + 2
+        if buffer.length > @localOffset + offset + 1
             a0 = buffer[@localOffset + offset + 0]
             a1 = buffer[@localOffset + offset + 1]
         else
@@ -252,7 +252,7 @@ class Stream
         
         i = 0; buffer = @list.buffers[i].data
         
-        until buffer.length > offset + 1
+        until buffer.length > offset
             offset -= buffer.length
             buffer = @list.buffers[++i].data
         
@@ -270,7 +270,7 @@ class Stream
         
         i = 0; buffer = @list.buffers[i].data
         
-        until buffer.length > offset + 1
+        until buffer.length > offset
             offset -= buffer.length
             buffer = @list.buffers[++i].data
         
@@ -345,27 +345,39 @@ class Bitstream
         return this
     
     readBig: (bits) ->
-        a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
+        a0 = @stream.peekUInt8(0) * 0x0100000000
+        a1 = @stream.peekUInt8(1) * 0x0001000000
+        a2 = @stream.peekUInt8(2) * 0x0000010000
+        a3 = @stream.peekUInt8(3) * 0x0000000100
+        a4 = @stream.peekUInt8(4) * 0x0000000001
+        
+        a = a0 + a1 + a2 + a3 + a4
         
         a = (a % Math.pow(2, 40 - @bitPosition))
-        a = ((a / Math.pow(2, 40 - @bitPosition - bits)) << 0)
+        a = (a / Math.pow(2, 40 - @bitPosition - bits))
         
         this.advance(bits)
         
-        return a
+        return a << 0
     
     peekBig: (bits) ->
-        a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
+        a0 = @stream.peekUInt8(0) * 0x0100000000
+        a1 = @stream.peekUInt8(1) * 0x0001000000
+        a2 = @stream.peekUInt8(2) * 0x0000010000
+        a3 = @stream.peekUInt8(3) * 0x0000000100
+        a4 = @stream.peekUInt8(4) * 0x0000000001
+        
+        a = a0 + a1 + a2 + a3 + a4
         
         a = (a % Math.pow(2, 40 - @bitPosition))
-        a = ((a / Math.pow(2, 40 - @bitPosition - bits)) << 0)
+        a = (a / Math.pow(2, 40 - @bitPosition - bits))
         
-        return a
+        return a << 0
     
     read: (bits) ->
         a = @stream.peekUInt32(0)
         
-        a = (((a << @bitPosition) & 0xFFFFFFFF) >>> (32 - bits))
+        a = ((a << @bitPosition) >>> (32 - bits))
         
         this.advance(bits)
         

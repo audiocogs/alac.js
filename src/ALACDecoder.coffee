@@ -300,10 +300,10 @@ class ALACDecoder
                         
                         if (chanBits <= 16)
                             for i in [0 ... samples] by 1
-                                val = (data.read(chanBits) << shift) >> shift
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 @mixBufferU[i] = val
                                 
-                                val = (data.read(chanBits) << shift) >> shift
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 @mixBufferV[i] = val
                             
                         else
