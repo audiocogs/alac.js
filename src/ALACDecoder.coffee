@@ -91,7 +91,7 @@ class ALACDecoder
             
             tag = data.readSmall(3)
             
-            console.log(tag)
+            console.log("Tag: #{tag}")
             
             switch tag
                 when ID_SCE, ID_LFE  
@@ -328,7 +328,7 @@ class ALACDecoder
                             @shiftBuffer[i + 1] = shiftbits.read(shift)
                         
                     # un-mix the data and convert to output format
-    				# - note that mixRes = 0 means just interleave so we use that path for uncompressed frames
+                    # - note that mixRes = 0 means just interleave so we use that path for uncompressed frames
                     switch @config.bitDepth
                         when 16
                             out16 = new Int16Array(output, channelIndex)

@@ -348,17 +348,17 @@ class Bitstream
         a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
         a = (a % Math.pow(2, 40 - @bitPosition))
-        a = (a / Math.pow(2, 40 - @bitPosition - bits))
+        a = ((a / Math.pow(2, 40 - @bitPosition - bits)) << 0)
         
         this.advance(bits)
         
         return a
     
     peekBig: (bits) ->
-        a = @stream.peekUInt32(0) * 0x0100 + @stream.peekUInt8(4)
+        a = @stream.peekInt32(0) * 0x0100 + @stream.peekUInt8(4)
         
         a = (a % Math.pow(2, 40 - @bitPosition))
-        a = (a / Math.pow(2, 40 - @bitPosition - bits))
+        a = ((a / Math.pow(2, 40 - @bitPosition - bits)) << 0)
         
         return a
     
