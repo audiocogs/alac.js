@@ -91,7 +91,7 @@ class ALACDecoder
             
             tag = data.readSmall(3)
             
-            console.log("Tag: #{tag}")
+            console.log("Tag: #{tag} (#{data.offset()})")
             
             switch tag
                 when ID_SCE, ID_LFE  
@@ -207,6 +207,8 @@ class ALACDecoder
                     elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
                     
+                    console.log("Element Instance Tag: #{elementInstanceTag} (#{data.offset()})")
+                    
                     # read the 12 unused header bits
                     unusedHeader = data.read(12)
                     
@@ -215,7 +217,9 @@ class ALACDecoder
                         return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    headerByte = data.read(4)
+                    headerByte = data.readSmall(4)
+                    
+                    console.log("Header Byte: #{headerByte} (#{data.offset()})")
                     
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x03
@@ -387,6 +391,8 @@ class ALACDecoder
                     
                 when ID_END
                     data.align()
+                    
+                    console.log("End (#{data.offset()})")
                     
                 else
                     console.log("Error in frame")

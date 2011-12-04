@@ -324,6 +324,9 @@ class Bitstream
         
         return result
     
+    offset: () -> # Should be a property
+        return 8 * @stream.offset + @bitPosition
+    
     available: (bits) ->
         return @stream.available((bits + 8 - @bitPosition) / 8)
     
