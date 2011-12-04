@@ -63,8 +63,6 @@ class ALACDecoder
             avgBitRate: data.readUInt32()
             sampleRate: data.readUInt32()
         
-        console.log 'cookie', @config
-        
         @mixBufferU = new Int32Array(@config.frameLength)
         @mixBufferV = new Int32Array(@config.frameLength)
         
@@ -77,9 +75,6 @@ class ALACDecoder
             console.log "Requested less than a single channel"
             return [ALAC.errors.paramError]
         
-        
-        startOffset = data.offset()
-        
         @activeElements = 0
         channelIndex = 0
         
@@ -89,12 +84,14 @@ class ALACDecoder
         
         status = ALAC.errors.noError
         
-        while status is ALAC.errors.noError
+        startOffset = data.offset()
+        
+        end = false
+        
+        while status == ALAC.errors.noError && end == false
             pb = @config.pb
             
             tag = data.readSmall(3)
-            
-            console.log("Tag: #{tag} (#{data.offset() - startOffset})")
             
             switch tag
                 when ID_SCE, ID_LFE  
@@ -123,10 +120,10 @@ class ALACDecoder
                     chanBits = @config.bitDepth - shift
                     
                     # check for partial frame to override requested samples
-                    if partialFrame isnt 0
+                    unless partialFrame == 0
                         samples = data.read(16) << 16 + data.read(16)
                     
-                    if escapeFlag is 0
+                    if escapeFlag == 0
                         # compressed frame, read rest of parameters
                         mixBits     = data.read(8)
                         mixRes      = data.read(8)
@@ -143,7 +140,7 @@ class ALACDecoder
                             coefsU[i] = data.read(16)
                         
                         # if shift active, skip the the shift buffer but remember where it starts
-                        if bytesShifted isnt 0
+                        unless bytesShifted == 0
                             shiftbits = data.copy()
                             data.advance(shift * samples)
                         
@@ -162,7 +159,7 @@ class ALACDecoder
                         # uncompressed frame, copy data into the mix buffer to use common output code
                         shift = 32 - chanBits
                         
-                        if (chanBits <= 16)
+                        if chanBits <= 16
                             for i in [0 ... samples] by 1
                                 val = (data.read(chanBits) << shift) >> shift
                                 @mixBufferU[i] = val
@@ -177,7 +174,7 @@ class ALACDecoder
                         bytesShifted = 0
                     
                     # now read the shifted values into the shift buffer
-                    if bytesShifted isnt 0
+                    unless bytesShifted == 0
                         shift = bytesShifted * 8
                         
                         for i in [0...samples]
@@ -199,18 +196,16 @@ class ALACDecoder
                     
                     channelIndex += 1
                     return [status, output]
-                    
                 when ID_CPE                    
                     # if decoding this pair would take us over the max channels limit, bail
                     if (channelIndex + 2) > channels
-                        # TODO: GOTO NOMOARCHANNELS
                         console.log("No more channels, please")
+                        
+                        return [ALAC.errors.paramError]
                     
                     # stereo channel pair
                     elementInstanceTag = data.readSmall(4)
                     @activeElements |= (1 << elementInstanceTag)
-                    
-                    console.log("Element Instance Tag: #{elementInstanceTag} (#{data.offset() - startOffset})")
                     
                     # read the 12 unused header bits
                     unusedHeader = data.read(12)
@@ -221,8 +216,6 @@ class ALACDecoder
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = data.readSmall(4)
-                    
-                    console.log("Header Byte: #{headerByte} (#{data.offset() - startOffset})")
                     
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x03
@@ -235,8 +228,8 @@ class ALACDecoder
                     chanBits = @config.bitDepth - (bytesShifted * 8) + 1
                     
                     # check for partial frame length to override requested numSamples
-                    if partialFrame != 0
-                        samples = data.read(16) << 16 + data.read(16)
+                    unless partialFrame == 0
+                        samples = data.readBig(32)
                     
                     if escapeFlag == 0
                         # compressed frame, read rest of parameters
@@ -343,15 +336,12 @@ class ALACDecoder
                             
                         else
                             console.log("Evil bit depth")
-                            return -1231
+                            return [-1231]
                         
                     channelIndex += 2
-                    return [status, output]
-                    
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
                     return [ALAC.errors.paramError]
-                    
                 when ID_DSE
                     console.log("Data Stream element, ignoring")
                     
@@ -375,7 +365,6 @@ class ALACDecoder
                         return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
-                    
                 when ID_FIL
                     console.log("Fill element, ignoring")
                     
@@ -395,13 +384,13 @@ class ALACDecoder
                 when ID_END
                     data.align()
                     
-                    console.log("End (#{data.offset() - startOffset})")
-                    
+                    end = true
                 else
                     console.log("Error in frame")
                     return [ALAC.errors.paramError]
             
-            if channelIndex >= channels
-                console.log("Channel Index is high:", data.pos - 0)
-                
+            if channelIndex > channels
+                console.log("Channel Index is high")
+            
+        
         return [status, output]

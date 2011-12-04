@@ -47,7 +47,7 @@ class Aglib
         return 32
     
     dyn_get_16 = (data, m, k) ->
-        offs = data.pos
+        offs = data.bitPosition
         stream = data.peekBig(32 - offs) << offs
         bitsInPrefix = lead(~stream)
         
@@ -72,14 +72,13 @@ class Aglib
         return result
     
     dyn_get_32 = (data, m, k, maxbits) ->
-        offs = data.pos
-        stream = data.peekBig(32 - offs) << offs
+        offs = data.bitPosition
+        stream = data.peekSafeBig(32 - offs) << offs
         result = lead(~stream)
         
         if result >= MAX_PREFIX_32
             data.advance(MAX_PREFIX_32)
             return data.readBig(maxbits)
-            
         else
             data.advance(result + 1)
         
@@ -93,7 +92,7 @@ class Aglib
                 if v > 1
                     result += v - 1
                     data.advance(1)
-
+        
         return result
         
     @standard_ag_params: (fullwidth, sectorwidth) ->
@@ -117,7 +116,7 @@ class Aglib
         c = 0
         status = ALAC.errors.noError
         
-        while c < samples            
+        while c < samples
             m = mb >>> QBSHIFT
             k = Math.min(31 - lead(m + 3), kb)
             m = (1 << k) - 1
@@ -152,5 +151,7 @@ class Aglib
                     
                 zmode = 0 if n >= 65535
                 mb = 0
+            
         
         return status
+    

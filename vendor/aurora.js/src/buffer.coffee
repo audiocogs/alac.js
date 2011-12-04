@@ -258,6 +258,18 @@ class Stream
         
         return buffer[offset]
     
+    peekSafeUInt8: (offset = 0) ->
+        offset = @localOffset + offset
+        
+        for buffer, i in @list.buffers
+            if buffer.length > offset
+                return buffer.data[offset]
+            else
+                offset -= buffer.length
+            
+        
+        return 0
+    
     readInt8: () ->
         a0 = ((@list.first.data[@localOffset] << 24) >> 24)
         
@@ -265,7 +277,7 @@ class Stream
         
         return a0
     
-    peekUInt8: (offset = 0) ->
+    peekInt8: (offset = 0) ->
         offset = @localOffset + offset
         
         i = 0; buffer = @list.buffers[i].data
@@ -274,7 +286,7 @@ class Stream
             offset -= buffer.length
             buffer = @list.buffers[++i].data
         
-        return buffer[offset]
+        return ((buffer[offset] << 24) >> 24)
     
     readFloat64: () ->
         ToFloat64[1] = this.readUInt32()
@@ -377,6 +389,20 @@ class Bitstream
         a2 = @stream.peekUInt8(2) * 0x0000010000
         a3 = @stream.peekUInt8(3) * 0x0000000100
         a4 = @stream.peekUInt8(4) * 0x0000000001
+        
+        a = a0 + a1 + a2 + a3 + a4
+        
+        a = (a % Math.pow(2, 40 - @bitPosition))
+        a = (a / Math.pow(2, 40 - @bitPosition - bits))
+        
+        return a << 0
+    
+    peekSafeBig: (bits) ->
+        a0 = @stream.peekSafeUInt8(0) * 0x0100000000
+        a1 = @stream.peekSafeUInt8(1) * 0x0001000000
+        a2 = @stream.peekSafeUInt8(2) * 0x0000010000
+        a3 = @stream.peekSafeUInt8(3) * 0x0000000100
+        a4 = @stream.peekSafeUInt8(4) * 0x0000000001
         
         a = a0 + a1 + a2 + a3 + a4
         

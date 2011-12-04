@@ -60,6 +60,9 @@ class AuroraALACDecoder
                     
                     @packetsDecoded += 1
                     
+                    unless @bitstream.available(64) # TODO: Number picked by my behind
+                        result.final = true
+                    
                     @outputs.audio.send(result)
                 
             

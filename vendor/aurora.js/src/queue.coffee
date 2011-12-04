@@ -2,8 +2,8 @@ class Queue
     constructor: (@name) ->
         @chunkSize = (1 << 20)
         
-        @highwaterMark = 16
-        @lowwaterMark = 4
+        @highwaterMark = 256
+        @lowwaterMark = 64
         
         @finished = false
         @buffering = true
@@ -16,7 +16,6 @@ class Queue
         @inputs = {
             contents:
                 send: (buffer) -> this.enqueueBuffer(buffer)
-                finished: () -> this.finished()
                 mode: "Passive"
             
         }
