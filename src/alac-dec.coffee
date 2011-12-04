@@ -44,7 +44,7 @@ class AuroraALACDecoder
         @list.push(buffer) if buffer
         
         if @decoder
-            while (@bitstream.available(32) && buffer.final) || @bitstream.available(4096 << 6) # TODO: Number picked by my behind
+            while (@bitstream.available(32) && buffer && buffer.final) || @bitstream.available(4096 << 6) # TODO: Number picked by my behind
                 out = @decoder.decode(@bitstream, @metadata.format.framesPerPacket, @metadata.format.channelsPerFrame);
                 
                 if out[0] != 0

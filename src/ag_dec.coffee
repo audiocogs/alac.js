@@ -40,8 +40,9 @@ class Aglib
     lead = (m) ->
         c = 1 << 31
                 
-        for i in [0...32] by 1
+        for i in [0 ... 32] by 1
             return i if (c & m) != 0
+            
             c >>>= 1
         
         return 32

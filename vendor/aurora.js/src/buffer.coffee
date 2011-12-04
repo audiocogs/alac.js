@@ -259,9 +259,11 @@ class Stream
         return buffer[offset]
     
     peekSafeUInt8: (offset = 0) ->
-        offset = @localOffset + offset
+        offset = @localOffset + offset; list = @list.buffers
         
-        for buffer, i in @list.buffers
+        for i in [0 ... list.length] by 1
+            buffer = list[i]
+            
             if buffer.length > offset
                 return buffer.data[offset]
             else
