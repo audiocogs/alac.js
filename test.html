@@ -11,14 +11,16 @@
     <script>
         // Load the CAF file
         var xhr = new XMLHttpRequest();
-        // xhr.open("GET", "eod-begin.caf", true);
+        //xhr.open("GET", "emerson/1-02 Dumka. Andante con moto.caf", true);
+        //xhr.open("GET", "eod-begin.caf", true);
+        xhr.open("GET", "lovestruck.caf", true);
         // xhr.open("GET", "out.caf", true);
-        xhr.open("GET", "planets.caf", true);
+        //xhr.open("GET", "planets.caf", true);
         //xhr.open("GET", "02 - End of Daylight.caf", true);
         
         xhr.responseType = "arraybuffer";
         
-        xhr.onload = function() {
+        xhr.onload = function() {            
             var file = new Uint8Array(xhr.response);
             var data = new Data(file);
             
@@ -46,7 +48,7 @@
                 bitsPerChannel: data.readUInt32()
             }
             
-            // console.log('format', format);
+            console.log('format', format);
             
             if (format.formatID !== 'alac')
                 return console.log("CAF does not contain Apple Lossless audio");
@@ -64,6 +66,7 @@
                         
                     case 'data':
                         console.log("Found data");
+                        console.time("decode");
                         
                         var dataOffset = data.pos + 4,
                             dataSize = data.pos + size - 8, 
@@ -72,7 +75,7 @@
                         var bitbuffer = new BitBuffer(data.slice(dataOffset, dataSize));
                         var outputs = [], times = 0;
                         
-                        while (status == 0) {
+                        while (status === 0) {
                           // console.log("Packet", ++times);
                           
                           var out = decoder.decode(bitbuffer, 0, format.framesPerPacket, format.channelsPerFrame);
@@ -83,7 +86,10 @@
                           }
                           
                           status = out[0];
+                          delete out;
                         }
+                        
+                        console.timeEnd('decode');
                         
                         if (outputs.length > 0) {
                             eod = new Float32Array(outputs.length * outputs[0].length);
