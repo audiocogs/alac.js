@@ -1,145 +1,167 @@
+class HTTPWorker
+    BlobBuilder = window.BlobBuilder or window.WebKitBlobBuilder
+    URL = window.URL or window.webkitURL
+    
+    constructor: (doLoop) ->
+        @events = {}
+        
+        bb = new BlobBuilder()
+        bb.append 'var emit = ' + emit
+        bb.append '\n\n'
+        
+        bb.append 'var doLoop = ' + doLoop
+        bb.append '\n\n'
+        
+        bb.append 'this.onmessage = ' + onmessage
+        bb.append '\n\n'
+        
+        url = URL.createObjectURL(bb.getBlob())
+        @worker = new Worker(url)
+        @worker.onmessage = (e) =>
+            @emit e.data...
+        
+    onmessage = (e) ->
+        if e.data[0] == 'loop'
+            doLoop Array.prototype.slice.call(e.data, 1)...
+        
+    emit =  ->
+        postMessage Array.prototype.slice.call(arguments)
+        
+    run: (args...) ->
+        @worker.postMessage ['loop'].concat(args)
+        
+    on: (evt, fn) ->
+        @events[evt] ?= []
+        @events[evt].push(fn)
+        
+    off: (evt, fn) ->
+        events = @events[evt]
+        return unless events
+        
+        index = events.indexOf(fn)
+        events.splice(index, 1) if ~index
+        
+    once: (evt, fn) ->
+        @on evt, fun = =>
+            @off evt, fun
+            fn arguments...
+        
+    emit: (evt, args...) ->
+        events = @events[evt]
+        return unless events
+        
+        for fn in events
+            fn args...
+            
+        return
+
 class HTTPSource
     constructor: (@name) ->
         @chunkSize = (1 << 20)
-        
         @outputs = {}
-        
-        this.reset()
+        @inflight = false
+        @reset()
+        @worker = new HTTPWorker(workerLoop)
     
-    start: () ->
+    start: ->
+        if @inflight
+            return @loop()
+        
         @status = "Started"
         
-        unless @length
-            if @inflight
-                console.log("Should never be here, something is seriously wrong"); debugger
-            
-            @inflight = true
-            
-            @xhr = new XMLHttpRequest()
-            
-            onLoad = (event) =>
-                @length = parseInt(@xhr.getResponseHeader("Content-Length"))
-                
-                @inflight = false
-                
-                return this.loop()
-            
-            onError = (event) =>
-                console.log("HTTP Error when requesting length: ", event)
-                
-                @inflight = false
-                
-                this.pause()
-                
-                @messagebus.send(this, @name, "ERROR", "Source paused, failed to get length of file")
-                
-                return
-            
-            onAbort = (event) =>
-                console.log("HTTP Aborted: Paused?")
-                
-                @inflight = false
-                
-                return
-            
-            @xhr.addEventListener("load", onLoad, false);
-            @xhr.addEventListener("error", onError, false);
-            @xhr.addEventListener("abort", onAbort, false);
-            
-            @xhr.open("HEAD", @url, true)
-            
-            @xhr.send(null)
-        
-        return this
-        
-        if @inflight
-            console.log("Should never get here, unless you're starting a stream with in-flight requests"); debugger
-            
-        return this.loop()
-    
-    pause: () ->
-        @status = "Paused"
-        
-        if @inflight
-            @xhr.abort()
-            
-            @inflight = false
-        
-        return this
-    
-    reset: () ->
-        @status = "Paused"
-        
-        @xhr.abort() if @inflight
-        
-        @offset = 0
-        @inflight = false
-        
-        return this
-    
-    finished: () ->
-        @status = "Finished"
-        
-        return this
-    
-    loop: () ->
-        if @inflight
-            console.log("Should never be here, unless a loop is failing"); debugger
-        
-        if @offset == @length
-            return this.finished()
-        
         @inflight = true
-        
         @xhr = new XMLHttpRequest()
         
-        onLoad = (event) =>
-            buffer = new Buffer(new Uint8Array(@xhr.response))
-            
-            @offset += buffer.length
-            
-            buffer.final = true if @offset == @length
-            
-            @outputs.data.send(buffer)
-            
+        @xhr.onload = (event) =>
+            @length = parseInt(@xhr.getResponseHeader("Content-Length"))
             @inflight = false
-            
-            console.log("HTTP Finished: #{@name} (offset #{@offset >> 10} kB, length #{buffer.length >> 10} kB)")
-            
-            return this.loop()
+            @loop()
         
-        onError = (event) =>
-            console.log("HTTP Error: ", event)
+        @xhr.onerror = (event) =>
+            console.log("HTTP Error when requesting length: ", event)
             
-            @inflight = false
+            @pause()
+            @messagebus.send(this, @name, "ERROR", "Source paused, failed to get length of file")
             
-            this.pause()
-            
-            @messagebus.send(this, @name, "ERROR", "Source paused, errror sending HTTP request")
-            
-            return
-        
-        onAbort = (event) =>
+        @xhr.onabort = (event) =>
             console.log("HTTP Aborted: Paused?")
-            
             @inflight = false
-            
-            return
         
-        @xhr.addEventListener("load", onLoad, false);
-        @xhr.addEventListener("error", onError, false);
-        @xhr.addEventListener("abort", onAbort, false);
-        
-        @xhr.open("GET", @url, true)
-        
-        @xhr.responseType = "arraybuffer"
-        @xhr.setRequestHeader("Range", "bytes=#{@offset}-#{Math.min(@offset + @chunkSize, @length)}");
-        
+        @xhr.open("HEAD", @url, true)
         @xhr.send(null)
         
         return this
     
+    pause: ->
+        @status = "Paused"
+        
+        if @inflight
+            @xhr.abort() if @xhr
+            @inflight = false
+        
+        return this
+    
+    reset: ->
+        @pause()
+        @offset = 0
+        return this
+    
+    finished: ->
+        @status = "Finished"
+        @inflight = false
+        return this
+        
+    loop: ->
+        if @inflight or not @length
+            console.log("Should never be here, unless a loop is failing")
+            debugger
+            
+        if @offset == @length
+            return @finished()
+        
+        @inflight = true
+        
+        @worker.once 'load', (response) =>
+            #console.log(response)
+            
+            buffer = new Buffer(response)
+            @offset += buffer.length
+            buffer.final = true if @offset == @length
+            
+            @outputs.data.send(buffer)
+            @inflight = false
+            @loop()
+            
+        @worker.once 'error', =>
+            console.log("HTTP Error: ", event)
+            @pause()
+            
+        @worker.once 'abort', =>
+            console.log("HTTP Aborted: Paused?")
+            @inflight = false
+        
+        endPos = Math.min(@offset + @chunkSize, @length)
+        @worker.run(@url, @offset, endPos)
+        
+        return this
+        
+    workerLoop = (url, start, end) ->
+        xhr = new XMLHttpRequest()
+        
+        xhr.onload = (event) =>
+            emit 'load', new Uint8Array(xhr.response)
+        
+        xhr.onerror = (event) =>
+            emit 'error'
+        
+        xhr.onabort = (event) =>
+            emit 'abort'
+               
+        xhr.open("GET", url, true)
+        xhr.responseType = "arraybuffer"
+        xhr.setRequestHeader("Range", "bytes=#{start}-#{end}");
+        
+        xhr.send(null)
 
-window.Aurora = {} unless window.Aurora
-
+window.Aurora ||= {}
 window.Aurora.HTTPSource = HTTPSource
