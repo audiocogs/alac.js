@@ -65,7 +65,15 @@ class HTTPSource
         @xhr = new XMLHttpRequest()
         
         @xhr.onload = (event) =>
-            buffer = new Buffer(new Uint8Array(@xhr.response))
+            if @xhr.response
+                buf = new Uint8Array(@xhr.response)
+            else
+                txt = @xhr.responseText
+                buf = new Uint8Array(txt.length)
+                for i in [0...txt.length]
+                    buf[i] = txt.charCodeAt(i) & 0xff
+            
+            buffer = new Buffer(buf)
             @offset += buffer.length
             buffer.final = true if @offset == @length
             
@@ -86,6 +94,7 @@ class HTTPSource
         
         endPos = Math.min(@offset + @chunkSize, @length)
         @xhr.setRequestHeader("Range", "bytes=#{@offset}-#{endPos}")
+        @xhr.overrideMimeType('text/plain; charset=x-user-defined')
         @xhr.send(null)
                 
         return this
