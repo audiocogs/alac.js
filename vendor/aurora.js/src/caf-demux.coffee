@@ -143,6 +143,5 @@ class CAFDemuxer
         return this
     
 
-window.Aurora = {} unless window.Aurora
-
-window.Aurora.CAFDemuxer = CAFDemuxer
+this.Aurora = {} unless this.Aurora
+this.Aurora.CAFDemuxer = CAFDemuxer

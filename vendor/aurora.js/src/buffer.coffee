@@ -441,10 +441,10 @@ class Bitstream
         return a
     
 
-window.Aurora = {} unless window.Aurora
+this.Aurora = {} unless this.Aurora
 
-window.Aurora.Buffer = Buffer
-window.Aurora.BufferList = BufferList
+this.Aurora.Buffer = Buffer
+this.Aurora.BufferList = BufferList
 
-window.Aurora.Stream = Stream
-window.Aurora.Bitstream = Bitstream
+this.Aurora.Stream = Stream
+this.Aurora.Bitstream = Bitstream

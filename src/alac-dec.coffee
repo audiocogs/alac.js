@@ -89,6 +89,6 @@ class AuroraALACDecoder
         return this
     
 
-window.Aurora = {} unless window.Aurora
+this.Aurora = {} unless this.Aurora
 
-window.Aurora.ALACDecoder = AuroraALACDecoder
+this.Aurora.ALACDecoder = AuroraALACDecoder

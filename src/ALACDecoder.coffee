@@ -16,9 +16,7 @@
 #  limitations under the License.
 #
 
-class ALACDecoder
-    window.ALACDecoder = this
-    
+class ALACDecoder    
     ID_SCE = 0 # Single Channel Element
     ID_CPE = 1 # Channel Pair Element
     ID_CCE = 2 # Coupling Channel Element
@@ -396,3 +394,5 @@ class ALACDecoder
             
         
         return [status, output]
+
+this.ALACDecoder = ALACDecoder

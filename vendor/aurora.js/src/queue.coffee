@@ -72,6 +72,6 @@ class Queue
         return this
     
 
-window.Aurora = {} unless window.Aurora
+this.Aurora = {} unless this.Aurora
 
-window.Aurora.Queue = Queue
+this.Aurora.Queue = Queue
