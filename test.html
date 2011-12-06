@@ -39,7 +39,7 @@
                 evts.push(fn);
             },
             
-            off: function off(evt, fn) {
+            off: function(evt, fn) {
                 var evts = this.events[evt];
                 if (!evts) return;
 
@@ -47,7 +47,7 @@
                 ~index && evts.splice(index, 1);
             },
             
-            once: function once(evt, fn) {
+            once: function(evt, fn) {
                 var _this = this;
                 this.on(evt, function() {
                     _this.off(evt, arguments.callee);
