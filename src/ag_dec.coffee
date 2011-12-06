@@ -42,7 +42,6 @@ class Aglib
                 
         for i in [0 ... 32] by 1
             return i if (c & m) != 0
-            
             c >>>= 1
         
         return 32
@@ -155,4 +154,3 @@ class Aglib
             
         
         return status
-    
