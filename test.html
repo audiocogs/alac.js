@@ -7,77 +7,89 @@
     <p>Open your favorite JS console! :)</p>
     <p>Make sure you run build.sh after every change.</p>
     
-    <script src="lib/aurora.js"></script>
-    <script src="lib/alac.js"></script>
+    <!--<script src="lib/aurora.js"></script>
+    <script src="lib/alac.js"></script>-->
     <script src="sink.js"></script>
     
     <script>
-      var bus = {
-        send: function () {
-          console.log("Message Bus: ", arguments)
+        function WorkerPlayer() {
+            this.events = {};
+            this.worker = new Worker("worker.js");
+            
+            // Emit events
+            var _this = this;
+            this.worker.onmessage = function(e) {
+                var evts = _this.events[e.data[0]];
+                if (!evts) return;
+
+                var args = Array.prototype.slice.call(e.data, 1);
+                for (var i = 0; i < evts.length; i++) {
+                    evts[i].apply(null, args);
+                }
+            }
+            
+            this.worker.onerror = function(e) {
+                console.log(e);
+            }
         }
-      }
-      
-      var httpSource = new Aurora.HTTPSource("Source")
-      var cafDemuxer = new Aurora.CAFDemuxer("Demuxer")
-      var alacDecoder = new Aurora.ALACDecoder("Decoder")
-      var buffer = new Aurora.Queue("Buffer")
-      
-      // httpSource.url = "eod-begin.caf"
-      httpSource.url = "02 - End of Daylight.caf"
-      // httpSource.url = "planets.caf"
-      
-      httpSource.chunkSize = 128 * 1024
-      
-      httpSource.messagebus = bus
-      cafDemuxer.messagebus = bus
-      alacDecoder.messagebus = bus
-      
-      httpSource.outputs.data = cafDemuxer.inputs.data
-      
-      cafDemuxer.outputs.metadata = alacDecoder.inputs.metadata
-      cafDemuxer.outputs.cookie = alacDecoder.inputs.cookie
-      cafDemuxer.outputs.data = alacDecoder.inputs.data
-      
-      alacDecoder.outputs.audio = buffer.inputs.contents
-      
-      buffer.onHighwaterMark = function () {
-        console.log("Hitting High-Water Mark, Aurora o'hoy! Lets start playing!")
         
-        var output = buffer.outputs.contents
-        
-        var f = output.receive()
-        var frame = new Int16Array(f.data.buffer), frameOffset = 0
-        
-        var sink = Sink(function(buffer, channelCount) {
-          var bufferOffset = 0
-          
-          while (frame && bufferOffset < buffer.length) {
-            for (var i = 0; i < Math.min(frame.length - frameOffset, buffer.length - bufferOffset); i++) {
-              buffer[bufferOffset + i] = frame[frameOffset + i] / 0x8000
-            }
+        WorkerPlayer.prototype = {
+            on: function(evt, fn) {
+                var evts = this.events[evt] || (this.events[evt] = []);
+                evts.push(fn);
+            },
             
-            bufferOffset += i, frameOffset += i
+            off: function off(evt, fn) {
+                var evts = this.events[evt];
+                if (!evts) return;
+
+                var index = evts.indexOf(fn);
+                ~index && evts.splice(index, 1);
+            },
             
-            if (frameOffset == frame.length) {
-              f = output.receive()
-              
-              if (f) {
-                frame = new Int16Array(f.data.buffer), frameOffset = 0
-              } else {
-                frame = null, frameOffset = 0
-              }
+            once: function once(evt, fn) {
+                var _this = this;
+                this.on(evt, function() {
+                    _this.off(evt, arguments.callee);
+                    fn.apply(null, arguments);
+                });
+            },
+            
+            start: function(url) {
+                this.worker.postMessage(['start', url]);
+            },
+            
+            read: function(bufferLength, fn) {
+                this.once('response', fn);
+                this.worker.postMessage(['read', bufferLength]);
             }
-          }
-        }, 2, 10 * 44100, 44100);
+        }
         
-        sink.on('error', function(e){ console.log(e) })
-      }
-      
-      buffer.start()
-      alacDecoder.start()
-      cafDemuxer.start()
-      httpSource.start()
+        var player = new WorkerPlayer(),
+            paused = false;
+            
+        // Shim console.log for workers
+        player.on('log', function() { 
+            console.log.apply(console, arguments)
+        });
+        
+        player.on('ready', function() {
+            var frames = [];
+            var sink = Sink(function(buffer, channelCount) {
+                if(paused) return;
+                
+                if (frames.length)
+                    buffer.set(frames.shift());
+                
+                player.read(buffer.length, function(f) {
+                    frames.push(f);
+                });
+            }, 2, null, 44100);
+            
+            sink.on('error', function(e){ console.log(e) })
+        });
+        
+        player.start("emerson/1-04 Finale. Allegro assai.caf");
     </script>
 </body>
 </html>
