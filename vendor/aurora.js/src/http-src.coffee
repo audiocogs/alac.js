@@ -1,5 +1,5 @@
 class HTTPWorker
-    BlobBuilder = window.BlobBuilder or window.WebKitBlobBuilder
+    BlobBuilder = window.BlobBuilder or window.WebKitBlobBuilder or window.MozBlobBuilder
     URL = window.URL or window.webkitURL
     
     constructor: (doLoop) ->
