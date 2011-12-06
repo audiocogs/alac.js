@@ -74,12 +74,30 @@
         });
         
         player.on('ready', function() {
-            var frames = [];
+            var frames = [], offset = 0;
             var sink = Sink(function(buffer, channelCount) {
                 if(paused) return;
                 
-                if (frames.length)
-                    buffer.set(frames.shift());
+                if (frames.length) {
+                    var cur = frames[0];
+                    
+                    if (cur.length == buffer.length) {
+                        buffer.set(cur);
+                        frames.shift();
+                    }
+                    else {
+                        for (var i = 0; i < buffer.length; i++) {
+                            if (offset >= cur.length) {
+                                frames.shift();
+                                cur = frames[0];
+                                offset = 0;
+                                if (!cur) break;
+                            }
+                            
+                            buffer[i] = cur[offset++];
+                        }
+                    }
+                }
                 
                 player.read(buffer.length, function(f) {
                     frames.push(f);
@@ -89,7 +107,7 @@
             sink.on('error', function(e){ console.log(e) })
         });
         
-        player.start("emerson/1-04 Finale. Allegro assai.caf");
+        player.start("lovestruck.caf");
     </script>
 </body>
 </html>
