@@ -29,9 +29,9 @@ class ALACDecoder
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
-        list = new Aurora.BufferList(); list.push(@cookie)
+        list = new BufferList(); list.push(@cookie)
         
-        data = new Aurora.Stream(list)
+        data = new Stream(list)
         atom = data.peekString(4, 4)
         
         if atom is 'frma'
