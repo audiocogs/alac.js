@@ -81,9 +81,6 @@ class ALACDecoder
         output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
         
         status = ALAC.errors.noError
-        
-        startOffset = data.offset()
-        
         end = false
         
         while status == ALAC.errors.noError && end == false
@@ -196,6 +193,7 @@ class ALACDecoder
                     
                     channelIndex += 1
                     return [status, output]
+                    
                 when ID_CPE                    
                     # if decoding this pair would take us over the max channels limit, bail
                     if (channelIndex + 2) > channels
@@ -339,9 +337,11 @@ class ALACDecoder
                             return [-1231]
                         
                     channelIndex += 2
+                    
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
                     return [ALAC.errors.paramError]
+                    
                 when ID_DSE
                     console.log("Data Stream element, ignoring")
                     
@@ -365,6 +365,7 @@ class ALACDecoder
                         return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
+                    
                 when ID_FIL
                     console.log("Fill element, ignoring")
                     
@@ -383,15 +384,14 @@ class ALACDecoder
                     
                 when ID_END
                     data.align()
-                    
                     end = true
+                    
                 else
                     console.log("Error in frame")
                     return [ALAC.errors.paramError]
             
             if channelIndex > channels
                 console.log("Channel Index is high")
-            
         
         return [status, output]
 
