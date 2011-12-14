@@ -15,7 +15,8 @@ JavaScript MP3 decoder.  Currently, alac.js works properly in the latest version
 
 ## Authors
 
-alac.js was written by @jensnockert and @devongovett of @ofmlabs.
+alac.js was written by [@jensnockert](http://github.com/jensnockert) and [@devongovett](http://github.com/devongovett) 
+of [ofmlabs](http://ofmlabs.org/).
 
 ## How to run the development server
 
