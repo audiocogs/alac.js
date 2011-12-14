@@ -2,7 +2,7 @@ alac.js: An Apple Lossless decoder in the browser
 ================================================================================
 
 The Apple Lossless Audio Codec (ALAC) is an audio codec developed by Apple and included in the original iPod.
-ALAC is a data compression method which reduces the size of audio files with no loss of information.  
+ALAC is a data compression method which reduces the size of audio files with no loss of information.
 A decoded ALAC stream is bit-for-bit identical to the original uncompressed audio file.
 
 The original encoder and decoder were recently [open sourced](http://alac.macosforge.org/) by Apple, 
