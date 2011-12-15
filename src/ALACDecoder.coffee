@@ -68,10 +68,9 @@ class ALACDecoder
         @predictor = new Int32Array(predictorBuffer)
         @shiftBuffer = new Int16Array(predictorBuffer)
     
-    decode: (data, samples, channels) ->
-        unless channels > 0
-            console.log "Requested less than a single channel"
-            return [ALAC.errors.paramError]
+    decode: (data) ->
+        samples = @config.frameLength
+        channels = @config.numChannels
         
         @activeElements = 0
         channelIndex = 0
