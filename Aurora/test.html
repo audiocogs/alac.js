@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body>
+    <input type="file"><br><br><img>
+    <script src="http://localhost:8080/"></script>
+    <script>
+        document.querySelector("input").onchange = function(e) {
+            player = Player.fromFile(e.target.files[0]);
+            player.on('error', function(e) { console.log(e) });
+            
+            player.on('metadata', function(data) {
+                var buf = data['Cover Art'];
+                if (!buf) return;
+                
+                // Use the BlobBuilder API to construct a URL
+                var BlobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder,
+                    URL = window.URL || window.webkitURL;
+
+                var blob = new BlobBuilder();
+                blob.append(buf);
+                blob = blob.getBlob();
+                
+                // Show the album art
+                document.querySelector("img").src = URL.createObjectURL(blob);
+            });
+            
+            player.preload();
+            player.play();
+        }
+    </script>
+</body>
+</html>

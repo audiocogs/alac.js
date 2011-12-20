@@ -1,6 +1,5 @@
 *.caf
 
-vendor/
 src/.DS_Store
 alac/
 .DS_Store

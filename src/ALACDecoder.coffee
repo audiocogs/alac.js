@@ -16,9 +16,7 @@
 #  limitations under the License.
 #
 
-class ALACDecoder
-    window.ALACDecoder = this
-    
+class ALACDecoder    
     ID_SCE = 0 # Single Channel Element
     ID_CPE = 1 # Channel Pair Element
     ID_CCE = 2 # Coupling Channel Element
@@ -31,22 +29,24 @@ class ALACDecoder
     constructor: (@cookie) ->
         [offset, remaining] = [0, @cookie.byteLength]
         
-        data = new Data(@cookie)
-        atom = data.stringAt(4, 4)
+        list = new BufferList(); list.push(@cookie)
+        
+        data = new Stream(list)
+        atom = data.peekString(4, 4)
         
         if atom is 'frma'
             console.log "Skipping 'frma'"
             data.advance(12)
-        
-        atom = data.stringAt(4, 4)
+            atom = data.peekString(4, 4)
         
         if atom is 'alac'
             console.log "Skipping 'alac'"
             data.advance(12)
+            atom = data.peekString(4, 4)
             
-        if data.remaining() < 24
+        unless data.available(24)
             console.log "Cookie too short"
-            return ALAC.errors.paramError
+            return [ALAC.errors.paramError]
         
         @config =
             frameLength: data.readUInt32()
@@ -61,21 +61,16 @@ class ALACDecoder
             avgBitRate: data.readUInt32()
             sampleRate: data.readUInt32()
         
-        console.log 'cookie', @config
-        
         @mixBufferU = new Int32Array(@config.frameLength)
         @mixBufferV = new Int32Array(@config.frameLength)
         
         predictorBuffer = new ArrayBuffer(@config.frameLength * 4)
         @predictor = new Int32Array(predictorBuffer)
         @shiftBuffer = new Int16Array(predictorBuffer)
-            
-        return ALAC.errors.noError
-        
-    decode: (data, offset, samples, channels) ->
-        unless channels > 0
-            console.log "Requested less than a single channel"
-            return ALAC.errors.paramError
+    
+    decode: (data) ->
+        samples = @config.frameLength
+        channels = @config.numChannels
         
         @activeElements = 0
         channelIndex = 0
@@ -84,11 +79,13 @@ class ALACDecoder
         coefsV = new Int16Array(32)
         output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
         
-        offset *= 8
         status = ALAC.errors.noError
+        end = false
         
-        while status is ALAC.errors.noError
+        while status == ALAC.errors.noError && end == false
             pb = @config.pb
+            
+            return [status, output] unless data.available(3)
             
             tag = data.readSmall(3)
             
@@ -100,23 +97,29 @@ class ALACDecoder
                     
                     # read the 12 unused header bits
                     unused = data.read(12)
-                    return ALAC.errors.paramError unless unused is 0
+                    
+                    unless unused == 0
+                        console.log("Unused part of header does not contain 0, it should")
+                        return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     headerByte = data.read(4)
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x3
-                    return ALAC.errors.paramError if bytesShifted is 3
+                    
+                    if bytesShifted == 3
+                        console.log("Bytes are shifted by 3, they shouldn't be")
+                        return [ALAC.errors.paramError]
                     
                     shift = bytesShifted * 8
                     escapeFlag = headerByte & 0x1
                     chanBits = @config.bitDepth - shift
                     
                     # check for partial frame to override requested samples
-                    if partialFrame isnt 0
+                    unless partialFrame == 0
                         samples = data.read(16) << 16 + data.read(16)
                     
-                    if escapeFlag is 0
+                    if escapeFlag == 0
                         # compressed frame, read rest of parameters
                         mixBits     = data.read(8)
                         mixRes      = data.read(8)
@@ -133,7 +136,7 @@ class ALACDecoder
                             coefsU[i] = data.read(16)
                         
                         # if shift active, skip the the shift buffer but remember where it starts
-                        if bytesShifted isnt 0
+                        unless bytesShifted == 0
                             shiftbits = data.copy()
                             data.advance(shift * samples)
                         
@@ -152,7 +155,7 @@ class ALACDecoder
                         # uncompressed frame, copy data into the mix buffer to use common output code
                         shift = 32 - chanBits
                         
-                        if (chanBits <= 16)
+                        if chanBits <= 16
                             for i in [0 ... samples] by 1
                                 val = (data.read(chanBits) << shift) >> shift
                                 @mixBufferU[i] = val
@@ -167,7 +170,7 @@ class ALACDecoder
                         bytesShifted = 0
                     
                     # now read the shifted values into the shift buffer
-                    if bytesShifted isnt 0
+                    unless bytesShifted == 0
                         shift = bytesShifted * 8
                         
                         for i in [0...samples]
@@ -193,8 +196,9 @@ class ALACDecoder
                 when ID_CPE                    
                     # if decoding this pair would take us over the max channels limit, bail
                     if (channelIndex + 2) > channels
-                        # TODO: GOTO NOMOARCHANNELS
                         console.log("No more channels, please")
+                        
+                        return [ALAC.errors.paramError]
                     
                     # stereo channel pair
                     elementInstanceTag = data.readSmall(4)
@@ -205,24 +209,24 @@ class ALACDecoder
                     
                     unless unusedHeader == 0
                         console.log("Error! Unused header is silly")
-                        return ALAC.errors.paramError
+                        return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    headerByte = data.read(4)
+                    headerByte = data.readSmall(4)
                     
                     partialFrame = headerByte >>> 3
                     bytesShifted = (headerByte >>> 1) & 0x03
                     
                     if bytesShifted == 3
                         console.log("Moooom, the reference said that bytes shifted couldn't be 3!")
-                        return ALAC.errors.paramError
+                        return [ALAC.errors.paramError]
                     
                     escapeFlag = headerByte & 0x01
                     chanBits = @config.bitDepth - (bytesShifted * 8) + 1
                     
                     # check for partial frame length to override requested numSamples
-                    if partialFrame != 0
-                        samples = data.read(16) << 16 + data.read(16)
+                    unless partialFrame == 0
+                        samples = data.readBig(32)
                     
                     if escapeFlag == 0
                         # compressed frame, read rest of parameters
@@ -261,7 +265,7 @@ class ALACDecoder
                         status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
                         
                         if status != ALAC.errors.noError
-                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)...")
+                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 1)...")
                             return status
                         
                         if modeU == 0
@@ -293,10 +297,10 @@ class ALACDecoder
                         
                         if (chanBits <= 16)
                             for i in [0 ... samples] by 1
-                                val = (data.read(chanBits) << shift) >> shift
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 @mixBufferU[i] = val
                                 
-                                val = (data.read(chanBits) << shift) >> shift
+                                val = (data.readBig(chanBits) << shift) >> shift
                                 @mixBufferV[i] = val
                             
                         else
@@ -321,7 +325,7 @@ class ALACDecoder
                             @shiftBuffer[i + 1] = shiftbits.read(shift)
                         
                     # un-mix the data and convert to output format
-    				# - note that mixRes = 0 means just interleave so we use that path for uncompressed frames
+                    # - note that mixRes = 0 means just interleave so we use that path for uncompressed frames
                     switch @config.bitDepth
                         when 16
                             out16 = new Int16Array(output, channelIndex)
@@ -329,14 +333,13 @@ class ALACDecoder
                             
                         else
                             console.log("Evil bit depth")
-                            return -1231
+                            return [-1231]
                         
                     channelIndex += 2
-                    return [status, output]
                     
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
-                    return ALAC.errors.paramError
+                    return [ALAC.errors.paramError]
                     
                 when ID_DSE
                     console.log("Data Stream element, ignoring")
@@ -357,7 +360,8 @@ class ALACDecoder
                     # skip the data bytes
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return ALAC.errors.paramError
+                        console.log("My first overrun")
+                        return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
                     
@@ -372,18 +376,22 @@ class ALACDecoder
                         
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return ALAC.errors.paramError
+                        console.log("Another overrun")
+                        return [ALAC.errors.paramError]
                         
                     status = ALAC.errors.noError
                     
                 when ID_END
                     data.align()
+                    end = true
                     
                 else
                     console.log("Error in frame")
-                    return ALAC.errors.paramError
+                    return [ALAC.errors.paramError]
             
-            if channelIndex >= channels
-                console.log("Channel Index is high:", data.pos - 0)
-                
+            if channelIndex > channels
+                console.log("Channel Index is high")
+        
         return [status, output]
+
+this.ALACDecoder = ALACDecoder
