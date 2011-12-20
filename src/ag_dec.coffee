@@ -36,15 +36,49 @@ class Aglib
     MMULSHIFT = 2
     BITOFF = 24
     MAX_DATATYPE_BITS_16 = 16
-
-    lead = (m) ->
-        c = 1 << 31
-                
-        for i in [0 ... 32] by 1
-            return i if (c & m) != 0
-            c >>>= 1
+    
+    lead = (input) ->
+        output = 0
+        curbyte = 0
         
-        return 32
+        while 1 # emulate goto :)
+            curbyte = input >>> 24
+            break if curbyte
+            output += 8
+            
+            curbyte = input >>> 16
+            break if curbyte & 0xff
+            output += 8
+            
+            curbyte = input >>> 8
+            break if curbyte & 0xff
+            output += 8
+            
+            curbyte = input
+            break if curbyte & 0xff
+            output += 8
+            
+            return output
+            
+        if curbyte & 0xf0
+            curbyte >>>= 4
+        else
+            output += 4
+            
+        if curbyte & 0x8
+            return output
+            
+        if curbyte & 0x4
+            return output + 1
+        
+        if curbyte & 0x2
+            return output + 2
+            
+        if curbyte & 0x1
+            return output + 3
+            
+        # shouldn't get here
+        return output + 4
     
     dyn_get_16 = (data, m, k) ->
         offs = data.bitPosition
