@@ -107,7 +107,7 @@ class Aglib
     
     dyn_get_32 = (data, m, k, maxbits) ->
         offs = data.bitPosition
-        stream = data.peekSafeBig(32 - offs) << offs
+        stream = data.peekBig(32 - offs) << offs
         result = lead(~stream)
         
         if result >= MAX_PREFIX_32
