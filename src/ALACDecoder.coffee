@@ -227,7 +227,7 @@ class ALACDecoder
                     # check for partial frame length to override requested numSamples
                     unless partialFrame == 0
                         samples = data.readBig(32)
-                    
+                     
                     if escapeFlag == 0
                         # compressed frame, read rest of parameters
                         mixBits = data.read(8)
@@ -250,7 +250,7 @@ class ALACDecoder
                         
                         headerByte = data.read(8)
                         pbFactorV = headerByte >>> 5
-                        numV = headerByte & 0x1F;
+                        numV = headerByte & 0x1F
                         
                         for i in [0 ... numV] by 1
                             coefsV[i] = data.read(16)
@@ -258,7 +258,7 @@ class ALACDecoder
                         # if shift active, skip the interleaved shifted values but remember where they start
                         if bytesShifted != 0
                             shiftbits = data.copy()
-                            bits.advance((bytesShifted * 8) * 2 * samples)
+                            data.advance((bytesShifted * 8) * 2 * samples)
                         
                         # decompress and run predictor for "left" channel
                         agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
@@ -393,5 +393,3 @@ class ALACDecoder
                 console.log("Channel Index is high")
         
         return [status, output]
-
-this.ALACDecoder = ALACDecoder
