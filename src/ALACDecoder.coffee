@@ -26,24 +26,26 @@ class ALACDecoder
     ID_FIL = 6
     ID_END = 7
     
-    constructor: (@cookie) ->
-        [offset, remaining] = [0, @cookie.byteLength]
+    constructor: (cookie) ->
+        data = Stream.fromBuffer(cookie)
+
+        # For historical reasons the decoder needs to be resilient to magic cookies vended by older encoders.
+        # There may be additional data encapsulating the ALACSpecificConfig. 
+        # This would consist of format ('frma') and 'alac' atoms which precede the ALACSpecificConfig. 
+        # See ALACMagicCookieDescription.txt in the original Apple decoder for additional documentation 
+        # concerning the 'magic cookie'
         
-        list = new BufferList(); list.push(@cookie)
-        
-        data = new Stream(list)
-        atom = data.peekString(4, 4)
-        
-        if atom is 'frma'
+        # skip format ('frma') atom if present
+        if data.peekString(4, 4) is 'frma'
             console.log "Skipping 'frma'"
             data.advance(12)
-            atom = data.peekString(4, 4)
-        
-        if atom is 'alac'
+            
+        # skip 'alac' atom header if present
+        if data.peekString(4, 4) is 'alac'
             console.log "Skipping 'alac'"
             data.advance(12)
-            atom = data.peekString(4, 4)
-            
+        
+        # read the ALACSpecificConfig    
         unless data.available(24)
             console.log "Cookie too short"
             return [ALAC.errors.paramError]
@@ -61,282 +63,145 @@ class ALACDecoder
             avgBitRate: data.readUInt32()
             sampleRate: data.readUInt32()
         
-        @mixBufferU = new Int32Array(@config.frameLength)
-        @mixBufferV = new Int32Array(@config.frameLength)
+        # allocate mix buffers
+        @mixBuffers = [
+            new Int32Array(@config.frameLength) # left channel
+            new Int32Array(@config.frameLength) # right channel
+        ]
         
+        # allocate dynamic predictor buffer
         predictorBuffer = new ArrayBuffer(@config.frameLength * 4)
         @predictor = new Int32Array(predictorBuffer)
+        
+        # "shift off" buffer shares memory with predictor buffer
         @shiftBuffer = new Int16Array(predictorBuffer)
     
     decode: (data) ->
         samples = @config.frameLength
         channels = @config.numChannels
-        
-        @activeElements = 0
         channelIndex = 0
-        
-        coefsU = new Int16Array(32)
-        coefsV = new Int16Array(32)
+                
         output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
-        
         status = ALAC.errors.noError
         end = false
         
-        while status == ALAC.errors.noError && end == false
-            pb = @config.pb
-            
+        while status is ALAC.errors.noError and end is false
+            # bail if we ran off the end of the buffer
             return [status, output] unless data.available(3)
             
+            # read element tag
             tag = data.readSmall(3)
             
             switch tag
-                when ID_SCE, ID_LFE  
-                    # Mono / LFE channel
+                when ID_SCE, ID_LFE, ID_CPE
+                    # if decoding this would take us over the max channel limit, bail
+                    if channelIndex + 2 > channels
+                        console.log("No more channels, please")
+                        return [ALAC.errors.paramError]
+                    
+                    # no idea what this is for... doesn't seem used anywhere
                     elementInstanceTag = data.readSmall(4)
-                    @activeElements |= (1 << elementInstanceTag)
                     
                     # read the 12 unused header bits
                     unused = data.read(12)
                     
-                    unless unused == 0
+                    unless unused is 0
                         console.log("Unused part of header does not contain 0, it should")
                         return [ALAC.errors.paramError]
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    headerByte = data.read(4)
-                    partialFrame = headerByte >>> 3
-                    bytesShifted = (headerByte >>> 1) & 0x3
+                    partialFrame = data.readOne()
+                    bytesShifted = data.readSmall(2)
+                    escapeFlag = data.readOne()
                     
-                    if bytesShifted == 3
+                    if bytesShifted is 3
                         console.log("Bytes are shifted by 3, they shouldn't be")
                         return [ALAC.errors.paramError]
                     
-                    shift = bytesShifted * 8
-                    escapeFlag = headerByte & 0x1
-                    chanBits = @config.bitDepth - shift
-                    
                     # check for partial frame to override requested samples
-                    unless partialFrame == 0
-                        samples = data.read(16) << 16 + data.read(16)
-                    
-                    if escapeFlag == 0
-                        # compressed frame, read rest of parameters
-                        mixBits     = data.read(8)
-                        mixRes      = data.read(8)
-                        
-                        headerByte  = data.read(8)
-                        modeU       = headerByte >>> 4
-                        denShiftU   = headerByte & 0xf
-                        
-                        headerByte  = data.read(8)
-                        pbFactorU   = headerByte >>> 5
-                        numU        = headerByte & 0x1f
-                        
-                        for i in [0...numU] by 1
-                            coefsU[i] = data.read(16)
-                        
-                        # if shift active, skip the the shift buffer but remember where it starts
-                        unless bytesShifted == 0
-                            shiftbits = data.copy()
-                            data.advance(shift * samples)
-                        
-                        params = Aglib.ag_params(@config.mb, (@config.pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
-                        status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
-                        return status unless status is ALAC.errors.noError
-                        
-                        if modeU == 0
-                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
-                        else
-                            # the special "numActive == 31" mode can be done in-place
-                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
-                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
-                        
-                    else
-                        # uncompressed frame, copy data into the mix buffer to use common output code
-                        shift = 32 - chanBits
-                        
-                        if chanBits <= 16
-                            for i in [0 ... samples] by 1
-                                val = (data.read(chanBits) << shift) >> shift
-                                @mixBufferU[i] = val
-                            
-                        else
-                            for i in [0 ... samples] by 1
-                                val = (data.readBig(chanBits) << shift) >> shift
-                                @mixBufferU[i] = val
-                        
-                        maxBits = mixRes = 0
-                        bits1 = chanbits * samples
-                        bytesShifted = 0
-                    
-                    # now read the shifted values into the shift buffer
-                    unless bytesShifted == 0
-                        shift = bytesShifted * 8
-                        
-                        for i in [0...samples]
-                            @shiftBuffer[i] = shiftbits.read(shift)
-                    
-                    # convert 32-bit integers into output buffer
-                    switch @config.bitDepth
-                        when 16
-                            out16 = new Int16Array(output, channelIndex)
-                            j = 0
-                            for i in [0...samples] by 1
-                                out16[j] = @mixBufferU[i]
-                                j += channels
-                                
-                        else
-                            console.log("Only supports 16-bit samples right now")
-                            return -9000
-                        
-                    
-                    channelIndex += 1
-                    return [status, output]
-                    
-                when ID_CPE                    
-                    # if decoding this pair would take us over the max channels limit, bail
-                    if (channelIndex + 2) > channels
-                        console.log("No more channels, please")
-                        
-                        return [ALAC.errors.paramError]
-                    
-                    # stereo channel pair
-                    elementInstanceTag = data.readSmall(4)
-                    @activeElements |= (1 << elementInstanceTag)
-                    
-                    # read the 12 unused header bits
-                    unusedHeader = data.read(12)
-                    
-                    unless unusedHeader == 0
-                        console.log("Error! Unused header is silly")
-                        return [ALAC.errors.paramError]
-                    
-                    # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    headerByte = data.readSmall(4)
-                    
-                    partialFrame = headerByte >>> 3
-                    bytesShifted = (headerByte >>> 1) & 0x03
-                    
-                    if bytesShifted == 3
-                        console.log("Moooom, the reference said that bytes shifted couldn't be 3!")
-                        return [ALAC.errors.paramError]
-                    
-                    escapeFlag = headerByte & 0x01
-                    chanBits = @config.bitDepth - (bytesShifted * 8) + 1
-                    
-                    # check for partial frame length to override requested numSamples
-                    unless partialFrame == 0
+                    if partialFrame
                         samples = data.readBig(32)
-                     
-                    if escapeFlag == 0
+                    
+                    if escapeFlag is 0
+                        shift = bytesShifted * 8
+                        chanBits = @config.bitDepth - shift + channels - 1
+                        
                         # compressed frame, read rest of parameters
                         mixBits = data.read(8)
                         mixRes = data.read(8)
                         
-                        headerByte = data.read(8)
-                        modeU = headerByte >>> 4
-                        denShiftU = headerByte & 0x0F
+                        mode = []
+                        denShift = []
+                        pbFactor = []
+                        num = []
+                        coefs = []
                         
-                        headerByte = data.read(8)
-                        pbFactorU = headerByte >>> 5
-                        numU = headerByte & 0x1F
+                        for ch in [0...channels] by 1
+                            mode[ch] = data.readSmall(4)
+                            denShift[ch] = data.readSmall(4)
+                            pbFactor[ch] = data.readSmall(3)
+                            num[ch] = data.readSmall(5)
+                            table = coefs[ch] = new Int16Array(32)
+                            
+                            for i in [0...num[ch]] by 1
+                                table[i] = data.read(16)
                         
-                        for i in [0 ... numU] by 1
-                            coefsU[i] = data.read(16)
-                        
-                        headerByte = data.read(8)
-                        modeV = headerByte >>> 4
-                        denShiftV = headerByte & 0x0F
-                        
-                        headerByte = data.read(8)
-                        pbFactorV = headerByte >>> 5
-                        numV = headerByte & 0x1F
-                        
-                        for i in [0 ... numV] by 1
-                            coefsV[i] = data.read(16)
-                        
-                        # if shift active, skip the interleaved shifted values but remember where they start
-                        if bytesShifted != 0
+                        # if shift active, skip the the shift buffer but remember where it starts
+                        if bytesShifted
                             shiftbits = data.copy()
-                            data.advance((bytesShifted * 8) * 2 * samples)
+                            data.advance(shift * channels * samples)
                         
-                        # decompress and run predictor for "left" channel
-                        agParams = Aglib.ag_params(@config.mb, (pb * pbFactorU) / 4, @config.kb, samples, samples, @config.maxRun)
-                        status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
+                        # decompress and run predictors
+                        {mb, pb, kb, maxRun} = @config
                         
-                        if status != ALAC.errors.noError
-                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 1)...")
-                            return status
+                        for ch in [0...channels] by 1
+                            params = Aglib.ag_params(mb, (pb * pbFactor[ch]) / 4, kb, samples, samples, maxRun)
+                            status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
+                            return [status] unless status is ALAC.errors.noError
                         
-                        if modeU == 0
-                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
-                        else
-                            # the special "numActive == 31" mode can be done in-place
-                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
-                            Dplib.unpc_block(@predictor, @mixBufferU, samples, coefsU, numU, chanBits, denShiftU)
-                        
-                        # decompress and run predictor for "right" channel
-                        agParams = Aglib.ag_params(@config.mb, (pb * pbFactorV) / 4, @config.kb, samples, samples, @config.maxRun)
-                        status = Aglib.dyn_decomp(agParams, data, @predictor, samples, chanBits)
-                        
-                        if status != ALAC.errors.noError
-                            console.log("Mom said there should be no errors in the adaptive Goloumb code (part 2)...")
-                            return status
-                        
-                        if modeV == 0
-                            Dplib.unpc_block(@predictor, @mixBufferV, samples, coefsV, numV, chanBits, denShiftV)
-                        else
-                            # the special "numActive == 31" mode can be done in-place
-                            Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
-                            Dplib.unpc_block(@predictor, @mixBufferV, samples, coefsV, numV, chanBits, denShiftV)
+                            if mode[ch] is 0
+                                Dplib.unpc_block(@predictor, @mixBuffers[ch], samples, coefs[ch], num[ch], chanBits, denShift[ch])
+                            else
+                                # the special "numActive == 31" mode can be done in-place
+                                Dplib.unpc_block(@predictor, @predictor, samples, null, 31, chanBits, 0)
+                                Dplib.unpc_block(@predictor, @mixBuffers[ch], samples, coefs[ch], num[ch], chanBits, denShift[ch])
                         
                     else
-                        # uncompressed frame, copy data into the mix buffers to use common output code
+                        # uncompressed frame, copy data into the mix buffer to use common output code
                         chanBits = @config.bitDepth
                         shift = 32 - chanBits
                         
-                        if (chanBits <= 16)
-                            for i in [0 ... samples] by 1
+                        for i in [0...samples] by 1
+                            for ch in [0...channels] by 1
                                 val = (data.readBig(chanBits) << shift) >> shift
-                                @mixBufferU[i] = val
-                                
-                                val = (data.readBig(chanBits) << shift) >> shift
-                                @mixBufferV[i] = val
-                            
-                        else
-                            for i in [0 ... samples] by 1
-                                val = (data.readBig(chanBits) << shift) >> shift
-                                @mixBufferU[i] = val
-                                
-                                val = (data.readBig(chanBits) << shift) >> shift
-                                @mixBufferV[i] = val
-                            
+                                @mixBuffers[ch][i] = val
                         
                         mixBits = mixRes = 0
-                        bits1 = chanBits * samples
                         bytesShifted = 0
                     
                     # now read the shifted values into the shift buffer
-                    if bytesShifted != 0
+                    if bytesShifted
                         shift = bytesShifted * 8
-                        
-                        for i in [0 ... samples * 2] by 2
-                            @shiftBuffer[i + 0] = shiftbits.read(shift)
-                            @shiftBuffer[i + 1] = shiftbits.read(shift)
-                        
+                        for i in [0...samples * channels] by 1
+                            @shiftBuffer[i] = shiftbits.read(shift)
+                    
                     # un-mix the data and convert to output format
                     # - note that mixRes = 0 means just interleave so we use that path for uncompressed frames
                     switch @config.bitDepth
                         when 16
                             out16 = new Int16Array(output, channelIndex)
-                            Matrixlib.unmix16(@mixBufferU, @mixBufferV, out16, channels, samples, mixBits, mixRes)
                             
+                            if channels is 2
+                                Matrixlib.unmix16(@mixBuffers[0], @mixBuffers[1], out16, channels, samples, mixBits, mixRes)
+                            else
+                                out16.set(@mixBuffers[0])
+                                
                         else
-                            console.log("Evil bit depth")
-                            return [-1231]
+                            console.log("Only supports 16-bit samples right now")
+                            return -9000
                         
-                    channelIndex += 2
-                    
+                    channelIndex += channels
+
                 when ID_CCE, ID_PCE
                     console.log("Unsupported element")
                     return [ALAC.errors.paramError]
@@ -350,7 +215,7 @@ class ALACDecoder
                     
                     # 8-bit count or (8-bit + 8-bit count) if 8-bit count == 255
                     count = data.readSmall(8)
-                    if count == 255
+                    if count is 255
                         count += data.readSmall(8)
                     
                     # the align flag means the bitstream should be byte-aligned before reading the following data bytes
@@ -371,7 +236,7 @@ class ALACDecoder
                     # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
                 	# - plus this weird -1 thing I still don't fully understand
                     count = data.readSmall(4)
-                    if count == 15
+                    if count is 15
                         count += data.readSmall(8) - 1
                         
                     data.advance(count * 8)
@@ -391,5 +256,6 @@ class ALACDecoder
             
             if channelIndex > channels
                 console.log("Channel Index is high")
+                break
         
         return [status, output]
