@@ -78,10 +78,10 @@ class ALACDecoder
     
     decode: (data) ->
         samples = @config.frameLength
-        channels = @config.numChannels
+        numChannels = @config.numChannels
         channelIndex = 0
                 
-        output = new ArrayBuffer(samples * channels * @config.bitDepth / 8)
+        output = new ArrayBuffer(samples * numChannels * @config.bitDepth / 8)
         status = ALAC.errors.noError
         end = false
         
@@ -94,8 +94,10 @@ class ALACDecoder
             
             switch tag
                 when ID_SCE, ID_LFE, ID_CPE
+                    channels = if tag is ID_CPE then 2 else 1
+                
                     # if decoding this would take us over the max channel limit, bail
-                    if channelIndex + 2 > channels
+                    if channelIndex + channels > numChannels
                         console.log("No more channels, please")
                         return [ALAC.errors.paramError]
                     
@@ -192,9 +194,13 @@ class ALACDecoder
                             out16 = new Int16Array(output, channelIndex)
                             
                             if channels is 2
-                                Matrixlib.unmix16(@mixBuffers[0], @mixBuffers[1], out16, channels, samples, mixBits, mixRes)
+                                Matrixlib.unmix16(@mixBuffers[0], @mixBuffers[1], out16, numChannels, samples, mixBits, mixRes)
                             else
-                                out16.set(@mixBuffers[0])
+                                j = 0
+                                buf = @mixBuffers[0]
+                                for i in [0...samples] by 1
+                                    out16[j] = buf[i]
+                                    j += numChannels
                                 
                         else
                             console.log("Only supports 16-bit samples right now")
@@ -254,7 +260,7 @@ class ALACDecoder
                     console.log("Error in frame")
                     return [ALAC.errors.paramError]
             
-            if channelIndex > channels
+            if channelIndex > numChannels
                 console.log("Channel Index is high")
                 break
         
