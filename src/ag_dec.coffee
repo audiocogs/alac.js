@@ -41,7 +41,7 @@ class Aglib
         output = 0
         curbyte = 0
         
-        while 1 # emulate goto :)
+        while true # emulate goto :)
             curbyte = input >>> 24
             break if curbyte
             output += 8
@@ -116,7 +116,7 @@ class Aglib
         else
             data.advance(result + 1)
         
-            if k != 1
+            if k isnt 1
                 stream <<= (result + 1)
                 result *= m
                 v = (stream >>> (32 - k))
