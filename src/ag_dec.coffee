@@ -128,9 +128,6 @@ class Aglib
                     data.advance(1)
         
         return result
-        
-    @standard_ag_params: (fullwidth, sectorwidth) ->
-        @ag_params(MB0, PB0, KB0, fullwidth, sectorwidth, MAX_RUN_DEFAULT)
 
     @ag_params: (m, p, k, f, s, maxrun) ->
         mb:  m
