@@ -32,11 +32,12 @@ class Dplib
         
         out[0] = pc1[0];
         
-        # just copy if active == 0
-        return copy(out, 0, pc1, 0, num * 4) if active == 0
+        # just copy if active is 0
+        if active is 0
+            return copy(out, 0, pc1, 0, num * 4)
         
         # short-circuit if active is 31    
-        if active == 31
+        if active is 31
             prev = out[0]
             
             for i in [1...num] by 1
@@ -52,7 +53,7 @@ class Dplib
         
         lim = active + 1
         
-        if active == 4
+        if active is 4
             # Optimization for active == 4
             [a0, a1, a2, a3] = coefs
             
@@ -114,7 +115,7 @@ class Dplib
             coefs[2] = a2
             coefs[3] = a3
             
-        else if active == 8
+        else if active is 8
             # Optimization for active == 8
             [a0, a1, a2, a3, a4, a5, a6, a7] = coefs
             
