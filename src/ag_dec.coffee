@@ -145,7 +145,6 @@ class Aglib
         
         zmode = 0
         c = 0
-        status = ALAC.errors.noError
         
         while c < samples
             m = mb >>> QBSHIFT
@@ -175,7 +174,7 @@ class Aglib
                 n = dyn_get_16(data, mz, k)
                 
                 unless c + n <= samples
-                    return ALAC.errors.paramError
+                    return false
                     
                 for j in [0...n] by 1
                     pc[c++] = 0
@@ -184,4 +183,4 @@ class Aglib
                 mb = 0
             
         
-        return status
+        return true

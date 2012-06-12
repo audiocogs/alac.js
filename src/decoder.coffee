@@ -16,7 +16,13 @@
 #  limitations under the License.
 #
 
-class ALACDecoder    
+#import "ag_dec.coffee"
+#import "dp_dec.coffee"
+#import "matrix_dec.coffee"
+
+class ALACDecoder extends Decoder
+    Decoder.register('alac', ALACDecoder)
+    
     ID_SCE = 0 # Single Channel Element
     ID_CPE = 1 # Channel Pair Element
     ID_CCE = 2 # Coupling Channel Element
@@ -26,7 +32,7 @@ class ALACDecoder
     ID_FIL = 6
     ID_END = 7
     
-    constructor: (cookie) ->
+    setCookie: (cookie) ->
         data = Stream.fromBuffer(cookie)
 
         # For historical reasons the decoder needs to be resilient to magic cookies vended by older encoders.
@@ -47,8 +53,7 @@ class ALACDecoder
         
         # read the ALACSpecificConfig    
         unless data.available(24)
-            console.log "Cookie too short"
-            return [ALAC.errors.paramError]
+            return @emit 'error', 'Cookie too short'
         
         @config =
             frameLength: data.readUInt32()
@@ -62,6 +67,9 @@ class ALACDecoder
             maxFrameBytes: data.readUInt32()
             avgBitRate: data.readUInt32()
             sampleRate: data.readUInt32()
+            
+        # CAF files don't encode the bitsPerChannel
+        @format.bitsPerChannel ||= @config.bitDepth
         
         # allocate mix buffers
         @mixBuffers = [
@@ -76,18 +84,21 @@ class ALACDecoder
         # "shift off" buffer shares memory with predictor buffer
         @shiftBuffer = new Int16Array(predictorBuffer)
     
-    decode: (data) ->
+    readChunk: (data) ->
+        unless @bitstream.available(4096 << 6) or (@receivedFinalBuffer and @bitstream.available(32))
+            return @once 'available', @readChunk
+        
+        data = @bitstream    
         samples = @config.frameLength
         numChannels = @config.numChannels
         channelIndex = 0
                 
         output = new ArrayBuffer(samples * numChannels * @config.bitDepth / 8)
-        status = ALAC.errors.noError
         end = false
         
-        while status is ALAC.errors.noError and end is false
+        while not end
             # bail if we ran off the end of the buffer
-            return [status, output] unless data.available(3)
+            break unless data.available(3)
             
             # read element tag
             tag = data.readSmall(3)
@@ -98,8 +109,7 @@ class ALACDecoder
                 
                     # if decoding this would take us over the max channel limit, bail
                     if channelIndex + channels > numChannels
-                        console.log("No more channels, please")
-                        return [ALAC.errors.paramError]
+                        return @emit 'error', 'Too many channels!'
                     
                     # no idea what this is for... doesn't seem used anywhere
                     elementInstanceTag = data.readSmall(4)
@@ -108,8 +118,7 @@ class ALACDecoder
                     unused = data.read(12)
                     
                     unless unused is 0
-                        console.log("Unused part of header does not contain 0, it should")
-                        return [ALAC.errors.paramError]
+                        return @emit 'error', 'Unused part of header does not contain 0, it should'
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     partialFrame = data.readOne()
@@ -117,8 +126,7 @@ class ALACDecoder
                     escapeFlag = data.readOne()
                     
                     if bytesShifted is 3
-                        console.log("Bytes are shifted by 3, they shouldn't be")
-                        return [ALAC.errors.paramError]
+                        return @emit 'error', "Bytes are shifted by 3, they shouldn't be"
                     
                     # check for partial frame to override requested samples
                     if partialFrame
@@ -159,7 +167,8 @@ class ALACDecoder
                         for ch in [0...channels] by 1
                             params = Aglib.ag_params(mb, (pb * pbFactor[ch]) / 4, kb, samples, samples, maxRun)
                             status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
-                            return [status] unless status is ALAC.errors.noError
+                            unless status
+                                return @emit 'error', 'Error in Aglib.dyn_decomp'
                         
                             if mode[ch] is 0
                                 Dplib.unpc_block(@predictor, @mixBuffers[ch], samples, coefs[ch], num[ch], chanBits, denShift[ch])
@@ -203,18 +212,14 @@ class ALACDecoder
                                     j += numChannels
                                 
                         else
-                            console.log("Only supports 16-bit samples right now")
-                            return -9000
+                            return @emit 'error', 'Only supports 16-bit samples right now'
                         
                     channelIndex += channels
 
                 when ID_CCE, ID_PCE
-                    console.log("Unsupported element")
-                    return [ALAC.errors.paramError]
+                    return @emit 'error', "Unsupported element: #{tag}"
                     
                 when ID_DSE
-                    console.log("Data Stream element, ignoring")
-                    
                     # the tag associates this data stream element with a given audio element
                     elementInstanceTag = data.readSmall(4)
                     dataByteAlignFlag = data.readOne()
@@ -231,14 +236,9 @@ class ALACDecoder
                     # skip the data bytes
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        console.log("My first overrun")
-                        return [ALAC.errors.paramError]
-                        
-                    status = ALAC.errors.noError
+                        return @emit 'error', 'buffer overrun'
                     
                 when ID_FIL
-                    console.log("Fill element, ignoring")
-                    
                     # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
                 	# - plus this weird -1 thing I still don't fully understand
                     count = data.readSmall(4)
@@ -247,21 +247,16 @@ class ALACDecoder
                         
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        console.log("Another overrun")
-                        return [ALAC.errors.paramError]
-                        
-                    status = ALAC.errors.noError
-                    
+                        return @emit 'error', 'buffer overrun'
+                                            
                 when ID_END
                     data.align()
                     end = true
                     
                 else
-                    console.log("Error in frame")
-                    return [ALAC.errors.paramError]
+                    return @emit 'error', "Unknown element: #{tag}"
             
             if channelIndex > numChannels
-                console.log("Channel Index is high")
-                break
-        
-        return [status, output]
+                return @emit 'error', 'Channel index too large.'
+            
+        @emit 'data', new Int16Array(output)
