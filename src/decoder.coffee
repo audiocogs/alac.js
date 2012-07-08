@@ -42,14 +42,12 @@ class ALACDecoder extends Decoder
         # concerning the 'magic cookie'
         
         # skip format ('frma') atom if present
-        if data.peekString(0, 4) is 'frma'
-            console.log "Skipping 'frma'"
-            data.advance(8)
+        if data.peekString(4, 4) is 'frma'
+            data.advance(12)
             
         # skip 'alac' atom header if present
-        if data.peekString(0, 4) is 'alac'
-            console.log "Skipping 'alac'"
-            data.advance(8)
+        if data.peekString(4, 4) is 'alac'
+            data.advance(12)
         
         # read the ALACSpecificConfig    
         unless data.available(24)
