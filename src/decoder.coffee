@@ -20,8 +20,8 @@
 #import "dp_dec.coffee"
 #import "matrix_dec.coffee"
 
-class ALACDecoder extends Decoder
-    Decoder.register('alac', ALACDecoder)
+class ALACDecoder extends AV.Decoder
+    AV.Decoder.register('alac', ALACDecoder)
     
     ID_SCE = 0 # Single Channel Element
     ID_CPE = 1 # Channel Pair Element
@@ -33,7 +33,7 @@ class ALACDecoder extends Decoder
     ID_END = 7
     
     setCookie: (cookie) ->
-        data = Stream.fromBuffer(cookie)
+        data = AV.Stream.fromBuffer(cookie)
 
         # For historical reasons the decoder needs to be resilient to magic cookies vended by older encoders.
         # There may be additional data encapsulating the ALACSpecificConfig. 
@@ -99,7 +99,7 @@ class ALACDecoder extends Decoder
             break unless data.available(3)
             
             # read element tag
-            tag = data.readSmall(3)
+            tag = data.read(3)
             
             switch tag
                 when ID_SCE, ID_LFE, ID_CPE
@@ -110,7 +110,7 @@ class ALACDecoder extends Decoder
                         return @emit 'error', 'Too many channels!'
                     
                     # no idea what this is for... doesn't seem used anywhere
-                    elementInstanceTag = data.readSmall(4)
+                    elementInstanceTag = data.read(4)
                     
                     # read the 12 unused header bits
                     unused = data.read(12)
@@ -119,16 +119,16 @@ class ALACDecoder extends Decoder
                         return @emit 'error', 'Unused part of header does not contain 0, it should'
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
-                    partialFrame = data.readOne()
-                    bytesShifted = data.readSmall(2)
-                    escapeFlag = data.readOne()
+                    partialFrame = data.read(1)
+                    bytesShifted = data.read(2)
+                    escapeFlag = data.read(1)
                     
                     if bytesShifted is 3
                         return @emit 'error', "Bytes are shifted by 3, they shouldn't be"
                     
                     # check for partial frame to override requested samples
                     if partialFrame
-                        samples = data.readBig(32)
+                        samples = data.read(32)
                     
                     if escapeFlag is 0
                         shift = bytesShifted * 8
@@ -145,10 +145,10 @@ class ALACDecoder extends Decoder
                         coefs = []
                         
                         for ch in [0...channels] by 1
-                            mode[ch] = data.readSmall(4)
-                            denShift[ch] = data.readSmall(4)
-                            pbFactor[ch] = data.readSmall(3)
-                            num[ch] = data.readSmall(5)
+                            mode[ch] = data.read(4)
+                            denShift[ch] = data.read(4)
+                            pbFactor[ch] = data.read(3)
+                            num[ch] = data.read(5)
                             table = coefs[ch] = new Int16Array(32)
                             
                             for i in [0...num[ch]] by 1
@@ -182,7 +182,7 @@ class ALACDecoder extends Decoder
                         
                         for i in [0...samples] by 1
                             for ch in [0...channels] by 1
-                                val = (data.readBig(chanBits) << shift) >> shift
+                                val = (data.read(chanBits) << shift) >> shift
                                 @mixBuffers[ch][i] = val
                         
                         mixBits = mixRes = 0
@@ -219,13 +219,13 @@ class ALACDecoder extends Decoder
                     
                 when ID_DSE
                     # the tag associates this data stream element with a given audio element
-                    elementInstanceTag = data.readSmall(4)
-                    dataByteAlignFlag = data.readOne()
+                    elementInstanceTag = data.read(4)
+                    dataByteAlignFlag = data.read(1)
                     
                     # 8-bit count or (8-bit + 8-bit count) if 8-bit count == 255
-                    count = data.readSmall(8)
+                    count = data.read(8)
                     if count is 255
-                        count += data.readSmall(8)
+                        count += data.read(8)
                     
                     # the align flag means the bitstream should be byte-aligned before reading the following data bytes
                     if dataByteAlignFlag
@@ -239,9 +239,9 @@ class ALACDecoder extends Decoder
                 when ID_FIL
                     # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
                 	# - plus this weird -1 thing I still don't fully understand
-                    count = data.readSmall(4)
+                    count = data.read(4)
                     if count is 15
-                        count += data.readSmall(8) - 1
+                        count += data.read(8) - 1
                         
                     data.advance(count * 8)
                     unless data.pos < data.length
