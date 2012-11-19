@@ -50,9 +50,6 @@ class ALACDecoder extends AV.Decoder
             data.advance(12)
         
         # read the ALACSpecificConfig    
-        unless data.available(24)
-            return @emit 'error', 'Cookie too short'
-        
         @config =
             frameLength: data.readUInt32()
             compatibleVersion: data.readUInt8()
@@ -83,10 +80,9 @@ class ALACDecoder extends AV.Decoder
         @shiftBuffer = new Int16Array(predictorBuffer)
     
     readChunk: (data) ->
-        unless @bitstream.available(4096 << 6) or (@receivedFinalBuffer and @bitstream.available(32))
-            return @once 'available', @readChunk
+        return unless @stream.available(4)
         
-        data = @bitstream    
+        data = @bitstream
         samples = @config.frameLength
         numChannels = @config.numChannels
         channelIndex = 0
@@ -94,10 +90,7 @@ class ALACDecoder extends AV.Decoder
         output = new ArrayBuffer(samples * numChannels * @config.bitDepth / 8)
         end = false
         
-        while not end
-            # bail if we ran off the end of the buffer
-            break unless data.available(3)
-            
+        while not end            
             # read element tag
             tag = data.read(3)
             
@@ -107,7 +100,7 @@ class ALACDecoder extends AV.Decoder
                 
                     # if decoding this would take us over the max channel limit, bail
                     if channelIndex + channels > numChannels
-                        return @emit 'error', 'Too many channels!'
+                        throw new Error 'Too many channels!'
                     
                     # no idea what this is for... doesn't seem used anywhere
                     elementInstanceTag = data.read(4)
@@ -116,7 +109,7 @@ class ALACDecoder extends AV.Decoder
                     unused = data.read(12)
                     
                     unless unused is 0
-                        return @emit 'error', 'Unused part of header does not contain 0, it should'
+                        throw new Error 'Unused part of header does not contain 0, it should'
                     
                     # read the 1-bit "partial frame" flag, 2-bit "shift-off" flag & 1-bit "escape" flag
                     partialFrame = data.read(1)
@@ -124,7 +117,7 @@ class ALACDecoder extends AV.Decoder
                     escapeFlag = data.read(1)
                     
                     if bytesShifted is 3
-                        return @emit 'error', "Bytes are shifted by 3, they shouldn't be"
+                        throw new Error "Bytes are shifted by 3, they shouldn't be"
                     
                     # check for partial frame to override requested samples
                     if partialFrame
@@ -166,7 +159,7 @@ class ALACDecoder extends AV.Decoder
                             params = Aglib.ag_params(mb, (pb * pbFactor[ch]) / 4, kb, samples, samples, maxRun)
                             status = Aglib.dyn_decomp(params, data, @predictor, samples, chanBits)
                             unless status
-                                return @emit 'error', 'Error in Aglib.dyn_decomp'
+                                throw new Error 'Error in Aglib.dyn_decomp'
                         
                             if mode[ch] is 0
                                 Dplib.unpc_block(@predictor, @mixBuffers[ch], samples, coefs[ch], num[ch], chanBits, denShift[ch])
@@ -210,12 +203,12 @@ class ALACDecoder extends AV.Decoder
                                     j += numChannels
                                 
                         else
-                            return @emit 'error', 'Only supports 16-bit samples right now'
+                            throw new Error 'Only supports 16-bit samples right now'
                         
                     channelIndex += channels
 
                 when ID_CCE, ID_PCE
-                    return @emit 'error', "Unsupported element: #{tag}"
+                    throw new Error "Unsupported element: #{tag}"
                     
                 when ID_DSE
                     # the tag associates this data stream element with a given audio element
@@ -234,7 +227,7 @@ class ALACDecoder extends AV.Decoder
                     # skip the data bytes
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return @emit 'error', 'buffer overrun'
+                        throw new Error 'buffer overrun'
                     
                 when ID_FIL
                     # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
@@ -245,16 +238,16 @@ class ALACDecoder extends AV.Decoder
                         
                     data.advance(count * 8)
                     unless data.pos < data.length
-                        return @emit 'error', 'buffer overrun'
+                        throw new Error 'buffer overrun'
                                             
                 when ID_END
                     data.align()
                     end = true
                     
                 else
-                    return @emit 'error', "Unknown element: #{tag}"
+                    throw new Error "Unknown element: #{tag}"
             
             if channelIndex > numChannels
-                return @emit 'error', 'Channel index too large.'
+                throw new Error 'Channel index too large.'
             
-        @emit 'data', new Int16Array(output)
+        return new Int16Array(output)
