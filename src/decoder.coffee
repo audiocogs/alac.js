@@ -16,10 +16,6 @@
 #  limitations under the License.
 #
 
-#import "ag_dec.coffee"
-#import "dp_dec.coffee"
-#import "matrix_dec.coffee"
-
 class ALACDecoder extends AV.Decoder
     AV.Decoder.register('alac', ALACDecoder)
     
