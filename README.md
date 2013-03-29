@@ -10,7 +10,7 @@ and this is a port of the decoder to CoffeeScript so that ALAC files can be play
 
 ## Demo
 
-You can check out a [demo](http://audiocogs.org/codecs/alac/) alongside our other decoders [flac.js](http://github.com/audiocogs/flac.js), [MP3.js](http://github.com/devongovett/mp3.js), and [AAC.js](http://github.com/audiocogs/aac.js).  Currently, alac.js works properly in the latest versions of Firefox and Chrome.
+You can check out a [demo](http://audiocogs.org/codecs/alac/) alongside our other decoders [flac.js](http://github.com/audiocogs/flac.js), [MP3.js](http://github.com/devongovett/mp3.js), and [AAC.js](http://github.com/audiocogs/aac.js).  Currently, alac.js works properly in the latest versions of Firefox, Chrome, and Safari.
 
 ## Authors
 
