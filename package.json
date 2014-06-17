@@ -18,6 +18,10 @@
   "browserify-shim": {
     "av": "global:AV"
   },
+  "scripts": {
+    "prepublish": "make js",
+    "postpublish": "make clean"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/audiocogs/alac.js"
