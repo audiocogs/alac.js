@@ -3,3 +3,5 @@
 src/.DS_Store
 alac/
 .DS_Store
+build/
+node_modules/
