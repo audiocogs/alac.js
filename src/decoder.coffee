@@ -17,6 +17,9 @@
 #
 
 AV = require 'av'
+Aglib = require './ag_dec'
+Dplib = require './dp_dec'
+Matrixlib = require './matrix_dec'
 
 class ALACDecoder extends AV.Decoder
     AV.Decoder.register('alac', ALACDecoder)
