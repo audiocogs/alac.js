@@ -1,5 +1,5 @@
 js: src/*.coffee
-	./node_modules/.bin/coffee -c node.coffee src/*.coffee
+	./node_modules/.bin/coffee -c src/*.coffee
 
 browser: src/*.coffee
 	mkdir -p build/

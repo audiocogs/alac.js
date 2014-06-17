@@ -10,10 +10,13 @@
     "exorcist": "^0.1.6",
     "browserify": "^4.1.10",
     "browserify-shim": "^3.5.0",
-    "coffeeify": "^0.6.0"
+    "coffeeify": "^0.6.0",
+    "coffee-script": "^1.7.1"
   },
   "browserify": {
-    "transform": ["coffeeify"]
+    "transform": [
+      "coffeeify"
+    ]
   },
   "browserify-shim": {
     "av": "global:AV"
