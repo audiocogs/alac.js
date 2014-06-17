@@ -5,3 +5,4 @@ alac/
 .DS_Store
 build/
 node_modules/
+test/
