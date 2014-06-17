@@ -16,6 +16,8 @@
 #  limitations under the License.
 #
 
+AV = require 'av'
+
 class ALACDecoder extends AV.Decoder
     AV.Decoder.register('alac', ALACDecoder)
     
@@ -227,7 +229,7 @@ class ALACDecoder extends AV.Decoder
                     
                 when ID_FIL
                     # 4-bit count or (4-bit + 8-bit count) if 4-bit count == 15
-                	# - plus this weird -1 thing I still don't fully understand
+                	  # - plus this weird -1 thing I still don't fully understand
                     count = data.read(4)
                     if count is 15
                         count += data.read(8) - 1
@@ -247,3 +249,5 @@ class ALACDecoder extends AV.Decoder
                 throw new Error 'Channel index too large.'
             
         return new Int16Array(output)
+        
+module.exports = ALACDecoder
