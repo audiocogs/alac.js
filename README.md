@@ -18,22 +18,18 @@ alac.js was written by [@jensnockert](http://github.com/jensnockert) and [@devon
 of [Audiocogs](http://audiocogs.org/).
 
 ## Building
+
+We use [browserify](https://github.com/substack/node-browserify) to build alac.js.  You can download a
+prebuilt version from the Github [releases](https://github.com/audiocogs/alac.js/releases) page. 
+To build alac.js for the browser yourself, use the following commands:
+
+    npm install
+    make browser
     
-Currently, the [importer](https://github.com/devongovett/importer) module is used to build alac.js.  You can run
-the development server on port `3030` by first installing `importer` with npm, and then running it like this:
+This will place a built `alac.js` file, as well as a source map in the `build/` directory.
 
-    npm install importer -g
-    importer alac.js -p 3030
-    
-You can also build a static version like this:
-
-    importer alac.js build.js
-
-alac.js depends on [Aurora.js](https://github.com/audiocogs/aurora.js), our audio codec framework.  You will need
-to include either a prebuilt version of Aurora.js, or start another `importer` development server for Aurora before
-alac.js will work.  You can use the [test.html](https://github.com/audiocogs/aurora.js/blob/master/src/test.html) file
-in the Aurora.js repo as an example of how to use the APIs to play back audio files.  Just include alac.js on that 
-page as well in order to add support for ALAC files.
+alac.js depends on [Aurora.js](https://github.com/audiocogs/aurora.js), our audio codec framework.
+For detailed information on how to use Aurora.js, check out the [documentation](https://github.com/audiocogs/aurora.js/wiki).
 
     
 ## License

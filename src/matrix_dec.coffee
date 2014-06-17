@@ -39,3 +39,5 @@ class Matrixlib
     # unmix20
     # unmix24
     # unmix 32
+    
+module.exports = Matrixlib

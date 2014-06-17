@@ -184,3 +184,5 @@ class Aglib
             
         
         return true
+        
+module.exports = Aglib

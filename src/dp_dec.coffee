@@ -263,3 +263,5 @@ class Dplib
                         break if del0 >= 0
                     
         return
+        
+module.exports = Dplib

@@ -1,0 +1,42 @@
+{
+  "name": "alac",
+  "version": "0.1.0",
+  "description": "An Apple Lossless decoder for Aurora.js",
+  "main": "src/decoder",
+  "peerDependencies": {
+    "av": "~0.4.0"
+  },
+  "devDependencies": {
+    "exorcist": "^0.1.6",
+    "browserify": "^4.1.10",
+    "browserify-shim": "^3.5.0",
+    "coffeeify": "^0.6.0"
+  },
+  "browserify": {
+    "transform": ["coffeeify"]
+  },
+  "browserify-shim": {
+    "av": "global:AV"
+  },
+  "scripts": {
+    "prepublish": "make js",
+    "postpublish": "make clean"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/audiocogs/alac.js"
+  },
+  "keywords": [
+    "audio",
+    "av",
+    "aurora.js",
+    "aurora",
+    "decode"
+  ],
+  "author": "Devon Govett <devongovett@gmail.com>",
+  "license": "Apache",
+  "bugs": {
+    "url": "https://github.com/audiocogs/alac.js/issues"
+  },
+  "homepage": "https://github.com/audiocogs/alac.js"
+}
